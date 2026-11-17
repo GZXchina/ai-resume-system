@@ -666,11 +666,22 @@
       const old = importBtn.innerHTML;
       importBtn.disabled = true;
       importBtn.innerHTML = '<span class="spinner"></span>解析中';
-      const res = await Api.Resume.importFile(file);
-      importBtn.disabled = false;
-      importBtn.innerHTML = old;
-      App.renderIcons(importBtn);
-      importFile.value = '';
+      // 扫描件 OCR 可能耗时较久，展示已用时长，避免用户以为页面卡死
+      const startedAt = Date.now();
+      const tick = setInterval(() => {
+        importBtn.innerHTML = '<span class="spinner"></span>解析中 '
+          + Math.round((Date.now() - startedAt) / 1000) + 's';
+      }, 1000);
+      let res;
+      try {
+        res = await Api.Resume.importFile(file);
+      } finally {
+        clearInterval(tick);
+        importBtn.disabled = false;
+        importBtn.innerHTML = old;
+        App.renderIcons(importBtn);
+        importFile.value = '';
+      }
       if (res.code !== 0) {
         App.toast(res.message, 'error');
         return;

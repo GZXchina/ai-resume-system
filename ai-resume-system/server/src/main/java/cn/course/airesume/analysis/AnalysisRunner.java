@@ -8,6 +8,7 @@ import java.util.Arrays;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
@@ -26,15 +27,19 @@ public class AnalysisRunner {
     private final RuleEngine ruleEngine;
     private final AiClient aiClient;
     private final ObjectMapper objectMapper;
+    /** 规则模式的展示延迟：仅用于课堂演示「分析中」状态，生产可设 0 关闭 */
+    private final long ruleDelayMs;
 
     public AnalysisRunner(AnalysisDao analysisDao, ResumeTextService resumeTextService, JobDao jobDao,
-                          RuleEngine ruleEngine, AiClient aiClient, ObjectMapper objectMapper) {
+                          RuleEngine ruleEngine, AiClient aiClient, ObjectMapper objectMapper,
+                          @Value("${demo.rule-delay-ms:1200}") long ruleDelayMs) {
         this.analysisDao = analysisDao;
         this.resumeTextService = resumeTextService;
         this.jobDao = jobDao;
         this.ruleEngine = ruleEngine;
         this.aiClient = aiClient;
         this.objectMapper = objectMapper;
+        this.ruleDelayMs = ruleDelayMs;
     }
 
     @Async
@@ -56,7 +61,7 @@ public class AnalysisRunner {
             if (keywords.isEmpty()) keywords = RuleEngine.extractKeywords(job.jd());
 
             if ("RULE".equals(task.mode())) {
-                Thread.sleep(1200); // 让前端有“分析中”的可感知过程
+                if (ruleDelayMs > 0) Thread.sleep(ruleDelayMs); // 演示用延迟，可配置
                 RuleEngine.RuleResult r = ruleEngine.compute(resumeText, keywords);
                 analysisDao.markSuccess(taskId, r.score(), elapsed(start),
                         String.join(",", r.missing()), objectMapper.writeValueAsString(r.suggestions()));

@@ -2,6 +2,7 @@ package cn.course.airesume.resume;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -34,13 +35,30 @@ public class ResumeDao {
             + "DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i') AS updated_at";
 
     public List<ResumeRow> listByUser(long userId, String keyword) {
-        String sql = "SELECT " + COLS + " FROM resume WHERE user_id = ?";
+        return listByUser(userId, keyword, 0, 0);
+    }
+
+    /**
+     * 列表查询，支持可选分页：limit ≤ 0 表示不分页（保持旧行为，避免影响既有调用）。
+     * offset 仅在 limit &gt; 0 时生效。
+     */
+    public List<ResumeRow> listByUser(long userId, String keyword, int limit, int offset) {
+        StringBuilder sql = new StringBuilder("SELECT " + COLS + " FROM resume WHERE user_id = ?");
+        List<Object> args = new ArrayList<>();
+        args.add(userId);
         if (keyword != null && !keyword.isBlank()) {
-            sql += " AND (name LIKE ? OR target LIKE ?) ORDER BY updated_at DESC";
+            sql.append(" AND (name LIKE ? OR target LIKE ?)");
             String like = "%" + keyword.trim() + "%";
-            return jdbc.query(sql, MAPPER, userId, like, like);
+            args.add(like);
+            args.add(like);
         }
-        return jdbc.query(sql + " ORDER BY updated_at DESC", MAPPER, userId);
+        sql.append(" ORDER BY updated_at DESC");
+        if (limit > 0) {
+            sql.append(" LIMIT ? OFFSET ?");
+            args.add(limit);
+            args.add(Math.max(0, offset));
+        }
+        return jdbc.query(sql.toString(), MAPPER, args.toArray());
     }
 
     public Optional<ResumeRow> findById(long id) {

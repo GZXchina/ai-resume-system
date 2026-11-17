@@ -47,8 +47,8 @@ public class ResumeImportService {
         this.ocrService = ocrService;
     }
 
-    /** 文本抽取结果：note 非空时补充到 warnings（如 OCR 提示）。 */
-    private record Extracted(String text, String note) {}
+    /** 文本抽取结果：notes 非空时合并进 warnings（如 OCR 提示）。 */
+    private record Extracted(String text, List<String> notes) {}
 
     private static final Pattern PHONE = Pattern.compile("(?<!\\d)(1[3-9]\\d{9})(?!\\d)");
     private static final Pattern EMAIL = Pattern.compile("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}");
@@ -98,7 +98,7 @@ public class ResumeImportService {
             case "docx" -> extractDocx(bytes);
             case "doc" -> extractDoc(bytes);
             case "png", "jpg", "jpeg" -> extractImage(bytes, ext);
-            default -> new Extracted(decodeText(bytes), null);
+            default -> new Extracted(decodeText(bytes), List.of());
         };
         String text = normalize(extracted.text());
         if (text.length() < 20) {
@@ -109,9 +109,12 @@ public class ResumeImportService {
 
         List<String> warnings = new ArrayList<>();
         Draft draft = buildDraft(text, warnings);
-        warnings.add(0, "导入结果为草稿：请逐项核对姓名、求职意向、联系方式后再保存");
+        // OCR 等附加提示置于最前，确保用户先看到
+        if (extracted.notes() != null && !extracted.notes().isEmpty()) {
+            warnings.addAll(0, extracted.notes());
+        }
+        warnings.add("导入结果为草稿：请逐项核对姓名、求职意向、联系方式后再保存");
         warnings.add("教育经历不会自动识别，请在表单中补充");
-        if (extracted.note() != null) warnings.add(0, extracted.note());
         if (truncated) warnings.add("简历文字超过 2 万字，仅解析前 2 万字");
 
         Map<String, Object> data = new LinkedHashMap<>();
@@ -156,24 +159,49 @@ public class ResumeImportService {
             throw new BizException("文件不是有效的 PDF，请检查后重试");
         }
         String text;
+        int pageCount;
+        List<Integer> blankPages = new ArrayList<>();
+        int textPages = 0;
         try (PDDocument doc = PDDocument.load(bytes)) {
             if (doc.isEncrypted()) throw new BizException("PDF 已加密，无法解析，请上传未加密文件");
+            pageCount = doc.getNumberOfPages();
+            int scanPages = Math.min(10, pageCount);
             PDFTextStripper stripper = new PDFTextStripper();
-            stripper.setEndPage(Math.min(10, doc.getNumberOfPages()));
-            text = stripper.getText(doc);
+            StringBuilder sb = new StringBuilder();
+            // 逐页统计字符数：整份接近空白才算扫描件，个别空白页只提示、不误走 OCR
+            for (int p = 1; p <= scanPages; p++) {
+                stripper.setStartPage(p);
+                stripper.setEndPage(p);
+                String pageText = stripper.getText(doc);
+                if (normalize(pageText).length() >= 50) textPages++;
+                else blankPages.add(p);
+                sb.append(pageText).append('\n');
+            }
+            text = sb.toString();
         } catch (BizException e) {
             throw e;
         } catch (Exception e) {
             throw new BizException("PDF 解析失败，请确认文件未损坏后重试");
         }
-        if (normalize(text).length() >= 20) return new Extracted(text, null);
 
-        // 无文字层：按扫描件走 OCR 回退
-        if (!ocrService.isAvailable()) {
-            throw new BizException("PDF 未提取到文字，可能是扫描件。" + ocrService.unavailableMessage());
+        String normalized = normalize(text);
+        // 无文字层判定：整体不足 20 字，或所有页都低于 50 字且总长不足 200 字（典型“只有页眉的扫描件”）
+        boolean scanned = normalized.length() < 20 || (textPages == 0 && normalized.length() < 200);
+        if (scanned) {
+            if (!ocrService.isAvailable()) {
+                throw new BizException("PDF 未提取到文字，可能是扫描件。" + ocrService.unavailableMessage());
+            }
+            ResumeOcrService.OcrResult ocr = ocrService.recognizePdf(bytes);
+            List<String> notes = new ArrayList<>();
+            notes.add("本文件为扫描件，已通过 OCR 识别，请重点核对文字准确性");
+            notes.addAll(ocr.notes());
+            return new Extracted(ocr.text(), notes);
         }
-        String ocr = ocrService.recognizePdf(bytes);
-        return new Extracted(ocr, "本文件为扫描件，已通过 OCR 识别，请重点核对文字准确性");
+        List<String> notes = new ArrayList<>();
+        if (!blankPages.isEmpty()) {
+            notes.add("第 " + joinPages(blankPages) + " 页未提取到文字（可能是扫描图），如内容缺失请补充录入");
+        }
+        return new Extracted(text, notes);
     }
 
     private Extracted extractDocx(byte[] bytes) {
@@ -186,7 +214,7 @@ public class ResumeImportService {
                 if (!"word/document.xml".equals(entry.getName())) continue;
                 byte[] xml = zip.readNBytes(MAX_DOCX_XML_BYTES + 1);
                 if (xml.length > MAX_DOCX_XML_BYTES) throw new BizException("文档内容过大，无法解析");
-                return new Extracted(parseDocumentXml(xml), null);
+                return new Extracted(parseDocumentXml(xml), List.of());
             }
         } catch (BizException e) {
             throw e;
@@ -203,7 +231,7 @@ public class ResumeImportService {
         }
         try (HWPFDocument doc = new HWPFDocument(new ByteArrayInputStream(bytes))) {
             String text = new WordExtractor(doc).getText();
-            return new Extracted(text, null);
+            return new Extracted(text, List.of());
         } catch (EncryptedDocumentException e) {
             throw new BizException("DOC 已加密，无法解析，请解除密码后重试");
         } catch (Exception e) {
@@ -211,13 +239,17 @@ public class ResumeImportService {
         }
     }
 
-    /** 图片简历（PNG/JPG）：交给多模态模型 OCR。 */
+    /** 图片简历（PNG/JPG）：交给多模态模型 OCR。按文件头判定真实格式，MIME 必须与内容一致。 */
     private Extracted extractImage(byte[] bytes, String ext) {
-        boolean png = "png".equals(ext);
-        if (png && !isPng(bytes)) throw new BizException("文件不是有效的 PNG 图片，请检查后重试");
-        if (!png && !isJpeg(bytes)) throw new BizException("文件不是有效的 JPG 图片，请检查后重试");
-        String text = ocrService.recognizeImage(bytes);
-        return new Extracted(text, "本文件为图片简历，已通过 OCR 识别，请重点核对姓名、联系方式与技能");
+        String mime;
+        if (isPng(bytes)) mime = "image/png";
+        else if (isJpeg(bytes)) mime = "image/jpeg";
+        else throw new BizException("文件不是有效的 PNG/JPG 图片，请检查后重试");
+        ResumeOcrService.OcrResult ocr = ocrService.recognizeImage(bytes, mime);
+        List<String> notes = new ArrayList<>();
+        notes.add("本文件为图片简历，已通过 OCR 识别，请重点核对姓名、联系方式与技能");
+        notes.addAll(ocr.notes());
+        return new Extracted(ocr.text(), notes);
     }
 
     private static boolean isOle2(byte[] b) {
@@ -266,7 +298,7 @@ public class ResumeImportService {
         return text;
     }
 
-    /** TXT 优先 UTF-8，失败回退 GBK（兼容 Windows 记事本保存的中文文本）。 */
+    /** TXT 优先 UTF-8，失败回退 GBK（兼容 Windows 记事本保存的中文文本）；顺带剥离 UTF-8 BOM。 */
     private String decodeText(byte[] bytes) {
         String text;
         try {
@@ -275,7 +307,18 @@ public class ResumeImportService {
             text = new String(bytes, Charset.forName("GBK"));
         }
         if (text.indexOf('\uFFFD') >= 0) text = new String(bytes, Charset.forName("GBK"));
+        // Java 的 UTF-8 解码器不消费 BOM，残留的 U+FEFF 会污染首行（如姓名识别）
+        if (text.startsWith("\uFEFF")) text = text.substring(1);
         return text;
+    }
+
+    private static String joinPages(List<Integer> pages) {
+        StringBuilder sb = new StringBuilder();
+        for (Integer p : pages) {
+            if (sb.length() > 0) sb.append('、');
+            sb.append(p);
+        }
+        return sb.toString();
     }
 
     /* ---------------- 文本 → 草稿 ---------------- */

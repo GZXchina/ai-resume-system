@@ -33,6 +33,8 @@ public record ResumeForm(String name, String personName, String target, String p
         if (target.length() > 50) throw new BizException("求职意向不能超过 50 字");
         if (phone.length() > 20) throw new BizException("联系电话不能超过 20 字");
         if (email.length() > 60) throw new BizException("邮箱不能超过 60 字");
+        // summary 落库为 TEXT（上限 65535 字节），这里按字符数兜底，避免超长写入失败
+        if (summary.length() > 5000) throw new BizException("个人简介不能超过 5000 字");
 
         List<ResumeDao.Education> edus = new ArrayList<>();
         for (Object o : listOf(p.get("education"))) {

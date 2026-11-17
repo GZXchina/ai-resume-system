@@ -87,16 +87,27 @@ window.Api = (() => {
     return '?' + usable.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
   };
 
-  /** multipart 上传（不设置 Content-Type，交给浏览器生成 boundary） */
-  async function upload(path, formData) {
+  /** multipart 上传（不设置 Content-Type，交给浏览器生成 boundary）
+   *  扫描件 OCR 是同步调用，多页时可达 1~2 分钟，因此给一个明确的上限并提示超时原因 */
+  const UPLOAD_TIMEOUT_MS = 180000;
+
+  async function upload(path, formData, timeoutMs = UPLOAD_TIMEOUT_MS) {
     const headers = {};
     const t = token();
     if (t) headers['X-Token'] = t;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     let res;
     try {
-      res = await fetch(BASE + path, { method: 'POST', headers, body: formData });
+      res = await fetch(BASE + path, { method: 'POST', headers, body: formData, signal: controller.signal });
     } catch (e) {
+      if (e && e.name === 'AbortError') {
+        return fail('解析超时（超过 ' + Math.round(timeoutMs / 1000)
+          + ' 秒），扫描件页数较多时请重试，或改用可复制文字的 PDF/DOCX');
+      }
       return fail('无法连接服务器，请确认后端已启动');
+    } finally {
+      clearTimeout(timer);
     }
     if (res.status === 401) {
       toLogin();

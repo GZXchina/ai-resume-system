@@ -30,8 +30,10 @@ public class ResumeController {
     }
 
     @GetMapping
-    public ApiResponse<?> list(@RequestParam(value = "q", required = false) String q) {
-        return ApiResponse.ok(resumeService.list(q));
+    public ApiResponse<?> list(@RequestParam(value = "q", required = false) String q,
+                               @RequestParam(value = "page", defaultValue = "0") int page,
+                               @RequestParam(value = "size", defaultValue = "0") int size) {
+        return ApiResponse.ok(resumeService.list(q, page, size));
     }
 
     @GetMapping("/{id}")

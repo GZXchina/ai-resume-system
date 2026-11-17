@@ -423,6 +423,12 @@ def main():
     check("FR-RESUME-04 返回草稿提示与文本预览",
           r.get("code") == 0 and bool(d.get("warnings")) and bool(d.get("textPreview")), d)
 
+    # Windows 记事本保存的 UTF-8 文本带 BOM，首个字段不应残留不可见字符
+    _, r = upload("bom.txt", ("\ufeff" + txt).encode("utf-8"), token)
+    d = r.get("data", {})
+    check("FR-RESUME-04 TXT 带 BOM 时姓名不含不可见字符",
+          r.get("code") == 0 and d.get("personName") == "林知远", d)
+
     docx = make_docx(["林知远", "求职意向：Java 后端开发实习生", "电话：13812345678 邮箱：linzhiyuan@example.com",
                       "个人简介", "软件工程本科在读，熟悉 Java、Spring Boot 与 MySQL。",
                       "技能清单", "Java、Spring Boot、MySQL、Redis",
@@ -472,6 +478,14 @@ def main():
                   d.get("skills"))
             check("FR-RESUME-05 图片 OCR 提示已识别",
                   any("OCR" in w for w in d.get("warnings", [])), d.get("warnings"))
+
+            # JPG 走独立分支：MIME 必须是 image/jpeg，不能被当作 PNG 发送
+            jpg_path = Path(__file__).parent / "fixtures" / "resume_photo.jpg"
+            if jpg_path.exists():
+                _, r = upload("张伟简历.jpg", jpg_path.read_bytes(), token)
+                d = r.get("data", {})
+                check("FR-RESUME-05 JPG 图片 OCR 识别（MIME 与格式一致）",
+                      r.get("code") == 0 and d.get("personName") == "张伟", d)
 
             scan_path = Path(__file__).parent / "fixtures" / "scan_resume.pdf"
             _, r = upload("扫描简历.pdf", scan_path.read_bytes(), token)

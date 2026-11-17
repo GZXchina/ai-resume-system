@@ -32,6 +32,9 @@ public class AiClient {
             "提取图片中的全部文字，按阅读顺序原样输出。保持原有换行与标点；"
                     + "不要解释、不要总结、不要翻译、不要补全看不清的内容。若图片中没有文字，输出空字符串。";
 
+    /** 单次调用最多尝试次数（含首次），仅对 429/5xx 生效。 */
+    private static final int MAX_ATTEMPTS = 2;
+
     private final AiProperties props;
     private final ObjectMapper objectMapper;
     private final HttpClient http;
@@ -70,17 +73,26 @@ public class AiClient {
     /**
      * 图片 OCR（多模态输入）：返回模型提取的纯文本。
      * model 为空时使用当前分析模型，因此扫描件识别默认复用同一网关。
+     *
+     * @param imageBytes 图片原始字节（PNG 或 JPEG）
+     * @param mime       实际媒体类型，必须是 {@code image/png} 或 {@code image/jpeg}；
+     *                   早期版本硬编码为 image/png，导致 JPG 简历被网关拒绝，这里改为按实参传入
+     * @param model      多模态模型名，空则回落到分析模型
      */
-    public String ocrImage(byte[] pngBytes, String model) throws AiException {
+    public String ocrImage(byte[] imageBytes, String mime, String model) throws AiException {
         requireEndpoint();
-        String b64 = Base64.getEncoder().encodeToString(pngBytes);
+        String b64 = Base64.getEncoder().encodeToString(imageBytes);
         String usedModel = (model == null || model.isBlank()) ? props.resolveModel() : model;
+        String mediaType = (mime == null || mime.isBlank()) ? "image/png" : mime;
         Map<String, Object> body = Map.of(
                 "model", usedModel,
                 "temperature", 0,
+                // 一页简历的纯文本约 1~2k tokens，显式给足上限，避免网关默认值过低导致截断
+                "max_tokens", 4000,
                 "messages", List.of(Map.of("role", "user", "content", List.of(
                         Map.of("type", "text", "text", OCR_PROMPT),
-                        Map.of("type", "image_url", "image_url", Map.of("url", "data:image/png;base64," + b64))))));
+                        Map.of("type", "image_url",
+                                "image_url", Map.of("url", "data:" + mediaType + ";base64," + b64))))));
         String text = postChat(body);
         return text == null ? "" : text.trim();
     }
@@ -101,28 +113,39 @@ public class AiClient {
                 .POST(HttpRequest.BodyPublishers.ofString(writeJson(body)))
                 .build();
 
-        String responseBody;
-        try {
-            HttpResponse<String> res = http.send(request, HttpResponse.BodyHandlers.ofString());
-            if (res.statusCode() / 100 != 2) {
+        String responseBody = null;
+        // 仅对限流（429）与服务端错误（5xx）做一次短重试；超时不重试，避免超过 BR-ANALYSIS-03 的 30 秒阈值
+        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            try {
+                HttpResponse<String> res = http.send(request, HttpResponse.BodyHandlers.ofString());
+                int status = res.statusCode();
+                if (status / 100 == 2) {
+                    responseBody = res.body();
+                    break;
+                }
                 String detail = res.body() == null ? "" : res.body().replaceAll("\\s+", " ").trim();
                 if (detail.length() > 300) detail = detail.substring(0, 300);
-                throw new AiException("AI 服务返回 HTTP " + res.statusCode()
+                AiException error = new AiException("AI 服务返回 HTTP " + status
                         + (detail.isEmpty() ? "" : "：" + detail));
+                if (!isRetryableStatus(status) || attempt >= MAX_ATTEMPTS) throw error;
+                backoff(attempt);
+            } catch (java.net.http.HttpConnectTimeoutException e) {
+                throw new AiException("无法连接 AI 服务（连接超时）", true);
+            } catch (java.net.http.HttpTimeoutException e) {
+                throw new AiException("AI 服务响应超时（超过 " + props.getTimeoutSeconds() + " 秒）");
+            } catch (java.net.ConnectException | java.net.UnknownHostException | java.net.NoRouteToHostException e) {
+                // 服务未启动、域名不存在、无法路由：属于「AI 不可用」，上层可降级为规则模式（BR-ANALYSIS-04）
+                throw new AiException("AI 服务不可用：" + e.getMessage(), true);
+            } catch (AiException e) {
+                throw e;
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new AiException("AI 服务调用被中断，请重试。");
+            } catch (Exception e) {
+                throw new AiException("AI 服务调用失败：" + e.getMessage());
             }
-            responseBody = res.body();
-        } catch (java.net.http.HttpConnectTimeoutException e) {
-            throw new AiException("无法连接 AI 服务（连接超时）", true);
-        } catch (java.net.http.HttpTimeoutException e) {
-            throw new AiException("AI 服务响应超时（超过 " + props.getTimeoutSeconds() + " 秒）");
-        } catch (java.net.ConnectException | java.net.UnknownHostException | java.net.NoRouteToHostException e) {
-            // 服务未启动、域名不存在、无法路由：属于「AI 不可用」，上层可降级为规则模式（BR-ANALYSIS-04）
-            throw new AiException("AI 服务不可用：" + e.getMessage(), true);
-        } catch (AiException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new AiException("AI 服务调用失败：" + e.getMessage());
         }
+        if (responseBody == null) throw new AiException("AI 服务无响应，请稍后重试。");
 
         try {
             JsonNode root = objectMapper.readTree(responseBody);
@@ -132,6 +155,15 @@ public class AiClient {
         } catch (Exception e) {
             throw new AiException("AI 返回内容格式不符合约定，本次结果已丢弃，可重试。");
         }
+    }
+
+    /** 限流与服务端错误可重试；4xx（密钥无效、参数错误）重试无意义。 */
+    private static boolean isRetryableStatus(int status) {
+        return status == 429 || status >= 500;
+    }
+
+    private static void backoff(int attempt) throws InterruptedException {
+        Thread.sleep(300L * attempt);
     }
 
     private AiResult parseResult(String content) throws Exception {

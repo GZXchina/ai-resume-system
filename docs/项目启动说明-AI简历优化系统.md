@@ -137,7 +137,7 @@ java -jar target/ai-resume-server-1.0.0.jar --server.port=8080 --spring.profiles
 | --- | --- | --- |
 | `server.port` | 8080 | 必须命令行显式覆盖（见 3.4） |
 | `spring.datasource.url` | `jdbc:mysql://localhost:3306/ai_resume` | 本机 MySQL |
-| `spring.datasource.username/password` | `root` / `123456` | 与课程环境一致 |
+| `spring.datasource.username/password` | `${DB_USERNAME:root}` / `${DB_PASSWORD:}` | 一律由环境变量注入，仓库内不含明文；本地可写入 `server/config/application.yml` |
 | `ai.enabled` | `false` | `ai` profile 下为 `true` |
 | `ai.endpoint` | `http://ai-gateway.example.com/v1` | 内网 OpenAI 兼容网关 |
 | `ai.model` | `cn:deepseek-v4.1-flash` | 分析模型；可在管理端在线切换（存 `sys_config`，优先于此处） |
@@ -145,11 +145,27 @@ java -jar target/ai-resume-server-1.0.0.jar --server.port=8080 --spring.profiles
 | `ai.secret-key` | 空 | API-KEY 加密主密钥（Base64 或口令）；留空则用本机文件 `~/.ai-resume/ai-secret.key` |
 | `ai.ocr-enabled` | `true` | 扫描件/图片 OCR 开关 |
 | `ai.ocr-model` | `global:deepseek-v4.1-flash` | OCR 用的多模态模型，需网关支持图片输入 |
-| `ai.ocr-max-pages` | `3` | 扫描件最多识别页数 |
+| `ai.ocr-max-pages` | `3` | 扫描件最多识别页数（代码内钳制 1~20） |
+| `ai.ocr-dpi` | `150` | 扫描件渲染 DPI（代码内钳制 96~300） |
 | `ai.timeout-seconds` | `30` | 单次分析超时，超时判任务失败 |
+| `demo.rule-delay-ms` | `1200` | 规则模式的演示延迟，设为 0 关闭 |
 | `auth.token-ttl-hours` | `12` | 登录凭证滑动有效期 |
 
-环境变量优先级：`AI_ENDPOINT`、`AI_MODEL`、`AI_API_KEY`、`AI_TIMEOUT_SECONDS`、`AI_OCR_MODEL`、`AUTH_TOKEN_TTL_HOURS`。
+环境变量优先级：`AI_ENDPOINT`、`AI_MODEL`、`AI_API_KEY`、`AI_TIMEOUT_SECONDS`、`AI_OCR_MODEL`、`AI_OCR_MAX_PAGES`、`AI_OCR_DPI`、`AUTH_TOKEN_TTL_HOURS`。
+
+### 6.5 扫描件识别的能力与限制
+
+| 项目 | 说明 |
+| --- | --- |
+| 支持格式 | PNG / JPG 图片，以及无文字层的 PDF。按文件头判定真实格式，JPG 以 `image/jpeg` 发送、PNG 以 `image/png` 发送 |
+| 触发条件 | PDF 整份不足 20 字，或所有页都低于 50 字且总长不足 200 字时按扫描件处理；其余情况走本地文字抽取，个别空白页只在提示中说明 |
+| 页数 | 最多识别 `ai.ocr-max-pages` 页（默认 3，代码钳制上限 20）。**超出页数不会导入**，结果中会提示「共 N 页，仅识别前 K 页」 |
+| 图片规格 | 单边超过 2400px 先等比缩小；PNG 超过 3MB 自动转 JPEG；仍超限才降采样，降采样会在提示中说明可能影响准确率 |
+| 部分失败 | 逐页独立识别，某页超时或失败不影响其余页，提示中标注失败页号 |
+| 重试 | 网关返回 429 或 5xx 时自动重试 1 次（间隔 300ms）；超时与 4xx 不重试 |
+| 耗时 | 每页一次模型调用，单页最长 `ai.timeout-seconds`（30 秒）；3 页最坏约 90 秒，前端上传超时上限 180 秒并显示已用时长 |
+| 未启用时 | 关闭开关或未配置密钥时返回明确原因，不静默失败，也不阻断手动填写 |
+| 已知不足 | 多栏/表格版式可能错行；手写体与低分辨率扫描件识别率下降；暂不支持 HEIC/WEBP/BMP/TIFF 与本地离线 OCR |
 
 ---
 

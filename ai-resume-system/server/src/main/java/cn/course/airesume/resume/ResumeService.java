@@ -41,8 +41,17 @@ public class ResumeService {
     /* ---------------- 查询 ---------------- */
 
     public List<Map<String, Object>> list(String q) {
+        return list(q, 0, 0);
+    }
+
+    /**
+     * 简历列表。size ≤ 0 时返回全部（兼容既有调用）；page 从 1 开始，size 上限 200。
+     */
+    public List<Map<String, Object>> list(String q, int page, int size) {
         LoginUser me = AuthContext.require();
-        return resumeDao.listByUser(me.id(), q).stream().map(r -> {
+        int limit = size > 0 ? Math.min(size, 200) : 0;
+        int offset = limit > 0 ? Math.max(0, page - 1) * limit : 0;
+        return resumeDao.listByUser(me.id(), q, limit, offset).stream().map(r -> {
             Map<String, Object> m = toClient(r, false);
             m.put("versionCount", versionDao.countByResume(r.id()));
             return m;
