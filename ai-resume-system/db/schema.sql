@@ -1,6 +1,6 @@
 -- ============================================================
 -- AI 简历优化系统 · 数据库结构（MySQL 5.5.15）
--- 执行：mysql -u root -p123456 --default-character-set=utf8mb4 < schema.sql
+-- 执行：mysql -u root -p --default-character-set=utf8mb4 < schema.sql
 -- 说明：
 --   1) 本机实际为 MySQL 5.5，不支持 CHECK（会解析但忽略）与生成列，
 --      因此枚举/范围校验使用 BEFORE INSERT/UPDATE 触发器实现；

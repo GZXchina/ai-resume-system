@@ -5,6 +5,8 @@ ai-key.local.bat
 .env.*
 application-local.yml
 application-local.properties
+# 本地外部覆盖配置：存放本机数据库口令等，优先级高于 classpath 配置
+/ai-resume-system/server/config/
 
 # ===== Java / Maven =====
 target/

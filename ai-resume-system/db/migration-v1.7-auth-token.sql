@@ -1,7 +1,7 @@
 -- ============================================================
 -- 迁移脚本 v1.7：登录凭证持久化（auth_token）
 -- 适用：已按 v1.6 初始化的 ai_resume 库，无需重建
--- 执行：mysql -u root -p123456 --default-character-set=utf8mb4 < migration-v1.7-auth-token.sql
+-- 执行：mysql -u root -p --default-character-set=utf8mb4 < migration-v1.7-auth-token.sql
 -- 说明：
 --   1) 应用启动时会自动执行 CREATE TABLE IF NOT EXISTS，本脚本用于手工部署或提前建表；
 --   2) 本脚本可重复执行（IF NOT EXISTS + 索引已存在时忽略报错）；

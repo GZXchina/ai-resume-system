@@ -3,11 +3,12 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const EDGE = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
+const EDGE = process.env.EDGE_PATH || 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
 const PROFILE = path.join(process.env.TEMP || '/tmp', 'edge-cdp-airesume-' + Date.now());
 const PORT = 9333;
 const BASE = 'http://localhost:8080';
-const SHOT_DIR = 'C:\\Users\\Administrator\\Desktop\\软件实训课设\\docs\\screenshots';
+// 截图输出到项目根目录 docs/screenshots，避免硬编码本机绝对路径
+const SHOT_DIR = path.resolve(__dirname, '../../../docs/screenshots');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 

@@ -68,7 +68,7 @@ class AiVendorTest {
         assertEquals("deepseek", AiVendor.detectByEndpoint("https://api.deepseek.com/v1"));
         assertEquals("deepseek", AiVendor.detectByEndpoint("https://API.DeepSeek.com/v1/"));
         assertEquals("qwen", AiVendor.detectByEndpoint("https://dashscope.aliyuncs.com/compatible-mode/v1"));
-        assertEquals("custom", AiVendor.detectByEndpoint("http://10.50.79.225:7864/v1"));
+        assertEquals("custom", AiVendor.detectByEndpoint("http://ai-gateway.example.com/v1"));
         assertEquals("custom", AiVendor.detectByEndpoint(""));
         assertEquals("custom", AiVendor.detectByEndpoint(null));
     }

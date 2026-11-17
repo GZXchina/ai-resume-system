@@ -17,7 +17,7 @@
 
 | 组件 | 本机版本 | 说明 |
 | --- | --- | --- |
-| JDK | **17.0.12**（`C:/Users/Administrator/Documents/DevEnv/jdk-17.0.12`） | 项目按 Java 17 字节码编译，低于 17 无法运行 |
+| JDK | **17.0.12**（`<JDK17_HOME>`） | 项目按 Java 17 字节码编译，低于 17 无法运行 |
 | Maven | 3.9.11 | 构建与启动 |
 | MySQL | **5.5.15**（`C:/Program Files/MySQL/MySQL Server 5.5`） | 驱动锁定 `mysql-connector-java 5.1.49`，8.x 驱动不兼容 5.5 |
 | Python | 3.13.14 | 仅测试脚本需要（`e2e_test.py` 等，只用标准库） |
@@ -33,7 +33,7 @@
 ### 3.1 进入项目
 
 ```bash
-cd "C:/Users/Administrator/Desktop/软件实训课设/ai-resume-system"
+cd "<PROJECT_ROOT>/ai-resume-system"
 ```
 
 ### 3.2 初始化数据库
@@ -45,13 +45,13 @@ cd db
 MYSQL="C:/Program Files/MySQL/MySQL Server 5.5/bin/mysql.exe"
 
 # 1) 建库建表 + 触发器（必须用 mysql 客户端整体执行，脚本含 DELIMITER）
-"$MYSQL" -uroot -p123456 --default-character-set=utf8mb4 < schema.sql
+"$MYSQL" -uroot -p --default-character-set=utf8mb4 < schema.sql
 
 # 2) 导入演示种子数据（7 个账号、6 份简历、8 个岗位、9 条分析任务）
-"$MYSQL" -uroot -p123456 --default-character-set=utf8mb4 < data.sql
+"$MYSQL" -uroot -p --default-character-set=utf8mb4 < data.sql
 
 # 3) 校验：应输出 11（张表）
-"$MYSQL" -uroot -p123456 -e "use ai_resume; show tables;"
+"$MYSQL" -uroot -p -e "use ai_resume; show tables;"
 ```
 
 **关于五个迁移脚本**：`migration-v1.6-db-review.sql`、`migration-v1.7-auth-token.sql`、`migration-v1.8-ai-settings.sql`、`migration-v1.9-ai-vendor.sql`、`migration-v2.0-custom-api.sql` 只用于**升级旧库**。`schema.sql` 已包含全部新表与新约束，全新初始化时**不需要**执行迁移脚本。v1.9 脚本用于补齐 `sys_config` 表（存储 AI 厂商 / 地址 / 加密密钥 / 模型），v2.0 脚本用于补齐 `user_api_config` 表（学生自定义 API 配置），脚本本身均幂等，可重复执行。
@@ -77,7 +77,7 @@ export AI_API_KEY='你的密钥'
 ### 3.4 启动后端
 
 ```bash
-cd "C:/Users/Administrator/Desktop/软件实训课设/ai-resume-system/server"
+cd "<PROJECT_ROOT>/ai-resume-system/server"
 
 # AI 模式（推荐）：密钥直接跟在命令前，仅对该次进程生效
 AI_API_KEY='你的密钥' mvn spring-boot:run \
@@ -102,7 +102,7 @@ AI_API_KEY='你的密钥' mvn spring-boot:run \
 ## 4. 日常启动（已初始化过）
 
 ```bash
-cd "C:/Users/Administrator/Desktop/软件实训课设/ai-resume-system/server"
+cd "<PROJECT_ROOT>/ai-resume-system/server"
 AI_API_KEY='你的密钥' mvn spring-boot:run \
   -Dspring-boot.run.arguments="--server.port=8080 --spring.profiles.active=ai"
 ```
@@ -139,7 +139,7 @@ java -jar target/ai-resume-server-1.0.0.jar --server.port=8080 --spring.profiles
 | `spring.datasource.url` | `jdbc:mysql://localhost:3306/ai_resume` | 本机 MySQL |
 | `spring.datasource.username/password` | `root` / `123456` | 与课程环境一致 |
 | `ai.enabled` | `false` | `ai` profile 下为 `true` |
-| `ai.endpoint` | `http://10.50.79.225:7864/v1` | 内网 OpenAI 兼容网关 |
+| `ai.endpoint` | `http://ai-gateway.example.com/v1` | 内网 OpenAI 兼容网关 |
 | `ai.model` | `cn:deepseek-v4.1-flash` | 分析模型；可在管理端在线切换（存 `sys_config`，优先于此处） |
 | `ai.vendor` | 无（按地址推断） | 厂商 id；管理端保存后写入 `sys_config`，优先于按地址反查 |
 | `ai.secret-key` | 空 | API-KEY 加密主密钥（Base64 或口令）；留空则用本机文件 `~/.ai-resume/ai-secret.key` |
@@ -197,7 +197,7 @@ java -jar target/ai-resume-server-1.0.0.jar --server.port=8080 --spring.profiles
 - **月之暗面 Kimi**：platform.moonshot.cn/console/api-keys → 新建 API Key，`sk-` 开头。
 - **字节豆包（火山方舟）**：console.volcengine.com/ark → 开通模型 → 创建 API-KEY；模型名填接入点 ID（`ep-` 开头）或模型 ID。
 - **百度文心（千帆）**：console.bce.baidu.com → IAM → API-KEY 列表 → 创建；使用千帆 v2 的 OpenAI 兼容接口。
-- **自定义 / 私有网关**：使用网关方给的地址、模型名与密钥。本项目课程环境的内网网关 `http://10.50.79.225:7864/v1`（密钥 `wbk_` 开头）请选择此项，因为 `wbk_` 不符合 OpenAI 的 `sk-` 格式。
+- **自定义 / 私有网关**：使用网关方给的地址、模型名与密钥。自建或校内私有网关请选择此项，手工填写网关方提供的地址、模型名与密钥（密钥格式自定义，不一定符合 OpenAI 的 `sk-` 前缀）。
 
 ### 7.4 配置步骤（含厂商切换）
 
@@ -437,7 +437,7 @@ curl -s http://localhost:8080/api/auth/me -H "X-Token: <上一步的token>"
 ### 9.2 完整回归
 
 ```bash
-cd "C:/Users/Administrator/Desktop/软件实训课设/ai-resume-system/server/scripts"
+cd "<PROJECT_ROOT>/ai-resume-system/server/scripts"
 
 python e2e_test.py                              # 接口级 136 项（含并发、Token、DOC/OCR、模型设置、自定义 API、请求头加密）
 node browser_check.js                           # 页面走查 12 页，截图 01~09 写入 docs/screenshots
@@ -451,8 +451,8 @@ AI_API_KEY='密钥' python model_eval.py          # 模型评测（一致性/建
 ### 9.3 v1.9 AI 厂商配置自动化测试
 
 ```bash
-cd "C:/Users/Administrator/Desktop/软件实训课设/ai-resume-system/server"
-"C:/Users/Administrator/Documents/DevEnv/maven-3.9.11/bin/mvn.cmd" test \
+cd "<PROJECT_ROOT>/ai-resume-system/server"
+"mvn" test \
   "-Dtest=AiVendorTest,AiKeyCipherTest,AiPropertiesTest,AiSettingsServiceTest,AiVendorConfigIntegrationTest" \
   "-DfailIfNoTests=false"
 ```
@@ -470,8 +470,8 @@ cd "C:/Users/Administrator/Desktop/软件实训课设/ai-resume-system/server"
 ### 9.4 v2.0 / v2.1 自定义 API 自动化测试（名称/调用/加密）
 
 ```bash
-cd "C:/Users/Administrator/Desktop/软件实训课设/ai-resume-system/server"
-"C:/Users/Administrator/Documents/DevEnv/maven-3.9.11/bin/mvn.cmd" test \
+cd "<PROJECT_ROOT>/ai-resume-system/server"
+"mvn" test \
   "-Dtest=UserApiConfigServiceTest,UserApiInvokeServiceTest,UserApiConfigIntegrationTest" \
   "-DfailIfNoTests=false"
 ```
@@ -507,7 +507,7 @@ Spring Boot 从 `target/classes` 读取静态资源。改前端后必须 `mvn -q
 模型返回内容不符合约定 JSON（偶发，尤其切换模型后）。重试一次即可；若持续出现，改用管理端切换回 `cn:deepseek-v4.1-flash`。
 
 **Q7：`mvn` 报 `invalid target release: 17` 或 class file 版本错误**
-`JAVA_HOME` 指向的 JDK 低于 17。本项目实测使用 `C:/Users/Administrator/Documents/DevEnv/jdk-17.0.12`。
+`JAVA_HOME` 指向的 JDK 低于 17。本项目实测使用 `<JDK17_HOME>`。
 
 **Q8：导入 SQL 后中文变问号**
 执行 mysql 命令时漏了 `--default-character-set=utf8mb4`。
@@ -522,7 +522,7 @@ Spring Boot 从 `target/classes` 读取静态资源。改前端后必须 `mvn -q
 先点「测试连接」查看具体原因：HTTP 401/403 多为密钥无效或额度不足；"无法连接"多为接口地址写错、网关不可达或本机无外网。确认配置无误（例如内网网关临时不可达）可点「仍然保存」强制写入。
 
 **Q12：管理端厂商显示为"自定义 / 私有网关"，原来的厂商识别不到了**
-旧版本只保存了接口地址与模型，没有厂商字段。只要地址与某个预置厂商的默认地址一致，启动时会自动补写厂商；课程内网网关（`http://10.50.79.225:7864/v1`）等非预置地址按设计显示为「自定义 / 私有网关」，不影响分析功能。
+旧版本只保存了接口地址与模型，没有厂商字段。只要地址与某个预置厂商的默认地址一致，启动时会自动补写厂商；课程内网网关（`http://ai-gateway.example.com/v1`）等非预置地址按设计显示为「自定义 / 私有网关」，不影响分析功能。
 
 **Q13：换电脑后管理端提示"密钥未配置"，数据库里明明有密文**
 API-KEY 加密主密钥默认保存在本机 `~/.ai-resume/ai-secret.key`，换机后密文无法解密，启动日志会告警并回落到环境变量密钥。在配置页重新填写一次 API-KEY 即可；如需多机共用，请通过 `ai.secret-key` 显式指定同一主密钥。
@@ -546,10 +546,10 @@ netstat -ano | grep "0.0.0.0:8080"          # 找到最后一列 PID
 taskkill //PID <PID> //F
 
 # 重置数据（会清空全部业务数据）
-cd "C:/Users/Administrator/Desktop/软件实训课设/ai-resume-system/db"
-"C:/Program Files/MySQL/MySQL Server 5.5/bin/mysql.exe" -uroot -p123456 \
+cd "<PROJECT_ROOT>/ai-resume-system/db"
+"C:/Program Files/MySQL/MySQL Server 5.5/bin/mysql.exe" -uroot -p \
   --default-character-set=utf8mb4 < schema.sql
-"C:/Program Files/MySQL/MySQL Server 5.5/bin/mysql.exe" -uroot -p123456 \
+"C:/Program Files/MySQL/MySQL Server 5.5/bin/mysql.exe" -uroot -p \
   --default-character-set=utf8mb4 < data.sql
 ```
 

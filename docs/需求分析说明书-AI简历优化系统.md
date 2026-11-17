@@ -789,7 +789,7 @@ flowchart TD
 | Q-03 | 简历必填项与各字段长度上限的最终取值 | FR-RESUME-01、BR-RESUME-01/02 |
 | Q-04 | 管理员是否允许查看简历正文与建议全文 | FR-ADMIN-02、BR-ADMIN-01 |
 | Q-05 | 简历版本是否允许删除 | FR-VERSION-02、BR-VERSION-02 |
-| Q-06 | ✅ 已确认：内网 OpenAI 兼容网关（`http://10.50.79.225:7864/v1`），默认模型 `cn:deepseek-v4.1-flash`；密钥仅通过环境变量 `AI_API_KEY` 注入 | 非功能要求、部署方式 |
+| Q-06 | ✅ 已确认：内网 OpenAI 兼容网关（`http://ai-gateway.example.com/v1`），默认模型 `cn:deepseek-v4.1-flash`；密钥仅通过环境变量 `AI_API_KEY` 注入 | 非功能要求、部署方式 |
 | Q-07 | 课程对页面数量、文档格式与提交时间的具体要求 | 原型范围与排期 |
 | Q-08 | 选做功能口径：岗位匹配度是否计入正式成绩、模拟面试题是否需要保存历史 | FR-JOB-02、FR-INTERVIEW-01 |
 | Q-09 | 文件导入与 OCR 的解析精度要求、原始文件留存策略（当前支持 PDF/DOCX/DOC/TXT/PNG/JPG 与扫描件 OCR；只解析不落盘，结果需人工核对） | FR-RESUME-04、FR-RESUME-05 |

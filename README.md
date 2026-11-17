@@ -32,27 +32,36 @@ ai-resume-system-repo/
 
 双击根目录的 `启动系统.bat`：自动检查 JDK/Maven/MySQL、端口与数据表，缺失时自动导库，然后以 AI 模式（`profile=ai`，8080）启动并自动打开浏览器。
 
-- AI 密钥与网关地址放在 `ai-key.local.bat`（仅本机使用，已被 `.gitignore` 忽略）
-  - 首次使用：复制 `ai-key.local.bat.example` 为 `ai-key.local.bat`，把里面的密钥替换成自己的
+- AI 密钥、网关地址与数据库口令放在 `ai-key.local.bat`（仅本机使用，已被 `.gitignore` 忽略）
+  - 首次使用：复制 `ai-key.local.bat.example` 为 `ai-key.local.bat`，把里面的占位符替换成自己的
 - 端口已被占用时会询问「停止旧进程并重新启动」，选 N 则只打开页面
 
 ## 快速启动（手动）
 
 ```bash
-# 1) 导库（schema.sql 含 DROP TABLE，会清空已有数据）
+# 0) 准备本机口令（不写入仓库）
+export DB_USERNAME='your-db-user'
+export DB_PASSWORD='your-db-password'
+export AI_API_KEY='your-api-key'     # 可选，不填则走规则模式
+
+# 1) 导库（schema.sql 含 DROP TABLE，会清空已有数据；-p 后按提示输入口令）
 cd ai-resume-system/db
-"C:/Program Files/MySQL/MySQL Server 5.5/bin/mysql.exe" -uroot -p123456 --default-character-set=utf8mb4 < schema.sql
-"C:/Program Files/MySQL/MySQL Server 5.5/bin/mysql.exe" -uroot -p123456 --default-character-set=utf8mb4 < data.sql
+mysql -u "$DB_USERNAME" -p --default-character-set=utf8mb4 < schema.sql
+mysql -u "$DB_USERNAME" -p --default-character-set=utf8mb4 < data.sql
 
 # 2) 启动（必须显式指定端口，本机存在 SERVER__PORT 环境变量会覆盖配置）
 cd ../server
-AI_API_KEY='你的密钥' mvn spring-boot:run \
+mvn spring-boot:run \
   -Dspring-boot.run.arguments="--server.port=8080 --spring.profiles.active=ai"
 
 # 3) 打开浏览器
 #    学生端 http://localhost:8080/
 #    管理端 http://localhost:8080/admin/dashboard.html
 ```
+
+> 数据库账号口令通过 `DB_USERNAME` / `DB_PASSWORD` 环境变量注入；也可写入
+> `ai-resume-system/server/config/application.yml`（该目录已被 `.gitignore` 忽略，
+> Spring Boot 启动时会自动加载并覆盖 classpath 配置）。
 
 不配置 `AI_API_KEY` 也能全流程演示，系统会自动回落到规则模式（扫描件 OCR 不可用）。
 

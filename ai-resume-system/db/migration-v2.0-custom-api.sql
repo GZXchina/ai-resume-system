@@ -1,6 +1,6 @@
 -- ============================================================
 -- 迁移脚本 v2.0：学生端自定义 API 配置
--- 执行：mysql -u root -p123456 --default-character-set=utf8mb4 < migration-v2.0-custom-api.sql
+-- 执行：mysql -u root -p --default-character-set=utf8mb4 < migration-v2.0-custom-api.sql
 -- 说明：
 --   1) 新建 user_api_config 表，保存学生配置的自定义 API（请求头/参数/请求体/分组/标签）；
 --   2) 应用启动时也会自动 CREATE TABLE IF NOT EXISTS，本脚本用于显式初始化与检查；

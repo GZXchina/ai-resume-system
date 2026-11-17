@@ -1,6 +1,6 @@
 -- ============================================================
 -- 迁移脚本 v1.9：AI 模型厂商选择与密钥配置
--- 执行：mysql -u root -p123456 --default-character-set=utf8mb4 < migration-v1.9-ai-vendor.sql
+-- 执行：mysql -u root -p --default-character-set=utf8mb4 < migration-v1.9-ai-vendor.sql
 -- 说明：
 --   1) 复用 v1.8 的 sys_config 表（应用启动时会自动 CREATE TABLE IF NOT EXISTS），本脚本仅做幂等补建；
 --   2) 新增/使用的配置键（无需预先插入，保存配置时由应用写入）：

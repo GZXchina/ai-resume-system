@@ -1,7 +1,7 @@
 -- ============================================================
 -- 数据库审查问题修复迁移（MySQL 5.5.15）
 -- 对应：DR-002/003/004/005/006/007
--- 使用：mysql -uroot -p123456 --default-character-set=utf8mb4 < migration-v1.6-db-review.sql
+-- 使用：mysql -uroot -p --default-character-set=utf8mb4 < migration-v1.6-db-review.sql
 -- 说明：本脚本只执行一次；执行前请确认无孤儿数据与重复技能。
 -- ============================================================
 

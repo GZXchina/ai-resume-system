@@ -129,12 +129,12 @@ class AiVendorConfigIntegrationTest {
         String plainKey = "wbk_IntegrationTestKey_0123456789";
         Map<String, Object> out = service.updateSettings(Map.of(
                 "vendor", "custom",
-                "endpoint", "http://10.50.79.225:7864/v1",
+                "endpoint", "http://ai-gateway.example.com/v1",
                 "model", "cn:deepseek-v4.1-flash",
                 "apiKey", plainKey,
                 "skipTest", true));
 
-        assertEquals("http://10.50.79.225:7864/v1", out.get("endpoint"));
+        assertEquals("http://ai-gateway.example.com/v1", out.get("endpoint"));
         assertEquals("cn:deepseek-v4.1-flash", out.get("model"));
         assertEquals("custom", out.get("vendor"));
         assertEquals(true, out.get("requiresCustomEndpoint"));

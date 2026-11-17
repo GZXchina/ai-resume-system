@@ -1,6 +1,6 @@
 {
   "timestamp": "2026-10-25T17:50:08.237506",
-  "endpoint": "http://10.50.79.225:7864/v1",
+  "endpoint": "http://ai-gateway.example.com/v1",
   "promptConsistent": true,
   "probe": {
     "cn:deepseek-v4.1-flash": {

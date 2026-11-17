@@ -73,7 +73,7 @@
 | 后端 | Spring Boot 3.5.7 + JdbcTemplate | 单体应用，托管前端静态资源于同一进程（默认端口 8080） |
 | 数据库 | MySQL 5.5.15（InnoDB / utf8mb4_general_ci） | **11 张表**（`auth_token`、`sys_config`、v2.0 新增 `user_api_config`）；10 个外键、3 个唯一键、6 个枚举触发器；见 db/schema.sql 与《数据库设计说明》 |
 | 认证 | Token（**v1.7 起持久化到 `auth_token` 表**，12 小时滑动过期，30 秒本地缓存 + 5 分钟续期节流）+ X-Token 请求头 | 密码 PBKDF2-HmacSHA256（120000 次迭代）加密存储；重启后凭证仍有效；禁用账号即删库踢下线 |
-| AI 能力 | 真实 OpenAI 兼容网关（课程环境 `http://10.50.79.225:7864/v1`），**厂商 / 地址 / 密钥 / 模型均可在管理端在线配置（v1.9）**，默认 `cn:deepseek-v4.1-flash`，超时 30 秒，强制 HTTP/1.1；扫描件 OCR 使用多模态模型 `global:deepseek-v4.1-flash` | 未启用或缺少密钥 → 规则模式；已启用但不可达 → 运行期降级并标注；超时/HTTP 错误/格式异常 → 失败可重试；密钥优先取管理端加密配置，其次 `AI_API_KEY` / 配置文件；模型清单由服务端代理获取 |
+| AI 能力 | 真实 OpenAI 兼容网关（课程环境 `http://ai-gateway.example.com/v1`），**厂商 / 地址 / 密钥 / 模型均可在管理端在线配置（v1.9）**，默认 `cn:deepseek-v4.1-flash`，超时 30 秒，强制 HTTP/1.1；扫描件 OCR 使用多模态模型 `global:deepseek-v4.1-flash` | 未启用或缺少密钥 → 规则模式；已启用但不可达 → 运行期降级并标注；超时/HTTP 错误/格式异常 → 失败可重试；密钥优先取管理端加密配置，其次 `AI_API_KEY` / 配置文件；模型清单由服务端代理获取 |
 | 自定义 API（v2.0） | 服务端 `java.net.http.HttpClient`（HTTP/1.1）代发 | 配置存 `user_api_config`（按 user_id 隔离）；`/api/user-apis/test` 草稿测试不落库，`/{id}/invoke` 调用已存配置；连接 5s、读取 1~60s、失败重试 ≤3 次（仅网络异常/429/5xx）、响应截断 64KB、托管头拦截与敏感头掩码 |
 | 分析口径 | RuleEngine + ResumeTextService | 规则分析、岗位匹配度排序、多简历对比共用同一份简历文本与关键词口径，避免多处结果不一致 |
 | 文件导入 | PDFBox 2.0.30 + JDK zip/SAX | PDF 抽文本；DOCX 直接读 `word/document.xml`（不引入 POI）；TXT 兼容 UTF-8/GBK；仅解析为草稿，不落盘 |
@@ -219,7 +219,7 @@
 { "code": 0, "data": {
   "fileName": "我的简历.docx", "fileType": "docx", "textLength": 354,
   "personName": "林知远", "target": "Java 后端开发实习生",
-  "phone": "13812345678", "email": "linzhiyuan@example.com",
+  "phone": "138****5678", "email": "student@example.com",
   "summary": "软件工程本科在读，熟悉 Java、Spring Boot 与 MySQL。",
   "skills": ["Spring Boot", "Redis", "MySQL", "Java"],
   "projects": [{ "title": "校园二手交易平台", "role": "", "period": "2025.03 - 2025.09", "desc": "负责订单模块…" }],
@@ -312,7 +312,7 @@
 { "code": 0, "data": {
   "aiEnabled": true, "aiUsable": true, "model": "cn:deepseek-v4.1-flash", "models": ["..."],
   "vendor": "custom", "vendorName": "自定义 / 私有网关",
-  "endpoint": "http://10.50.79.225:7864/v1",
+  "endpoint": "http://ai-gateway.example.com/v1",
   "defaultEndpoint": "", "defaultModel": "",
   "apiKeyMasked": "wbk****GZGs", "apiKeySource": "database"
 } }
@@ -538,7 +538,7 @@ CREATE TABLE IF NOT EXISTS sys_config (
 
 ### 5.4 真实 AI 供应商联调
 
-- 配置：`application-ai.yml`，endpoint `http://10.50.79.225:7864/v1`，模型 `cn:deepseek-v4.1-flash`；密钥仅从环境变量 `AI_API_KEY` 读取。
+- 配置：`application-ai.yml`，endpoint `http://ai-gateway.example.com/v1`，模型 `cn:deepseek-v4.1-flash`；密钥仅从环境变量 `AI_API_KEY` 读取。
 - 启动（AI 模式）：
   ```bash
   AI_API_KEY=<your-key> mvn spring-boot:run \
@@ -633,8 +633,8 @@ CREATE TABLE IF NOT EXISTS sys_config (
 ```bash
 # 1) 初始化数据库（仅首次或环境重置后执行）
 cd ai-resume-system/db
-"C:/Program Files/MySQL/MySQL Server 5.5/bin/mysql.exe" -uroot -p123456 --default-character-set=utf8mb4 < schema.sql
-"C:/Program Files/MySQL/MySQL Server 5.5/bin/mysql.exe" -uroot -p123456 --default-character-set=utf8mb4 ai_resume < data.sql
+"C:/Program Files/MySQL/MySQL Server 5.5/bin/mysql.exe" -uroot -p --default-character-set=utf8mb4 < schema.sql
+"C:/Program Files/MySQL/MySQL Server 5.5/bin/mysql.exe" -uroot -p --default-character-set=utf8mb4 ai_resume < data.sql
 # 已有库升级（按版本顺序各执行一次）：migration-v1.6-db-review.sql → migration-v1.7-auth-token.sql
 #   → migration-v1.8-ai-settings.sql → migration-v1.9-ai-vendor.sql → migration-v2.0-custom-api.sql（均幂等，全新库无需执行）
 

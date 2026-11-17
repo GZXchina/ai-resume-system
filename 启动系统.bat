@@ -5,11 +5,9 @@ setlocal EnableExtensions
 set "ROOT=%~dp0"
 set "SERVER_DIR=%ROOT%ai-resume-system\server"
 set "DB_DIR=%ROOT%ai-resume-system\db"
-set "JAVA_HOME=C:\Users\Administrator\Documents\DevEnv\jdk-17.0.12"
-set "MAVEN_HOME=C:\Users\Administrator\Documents\DevEnv\maven-3.9.11"
 set "MYSQL=C:\Program Files\MySQL\MySQL Server 5.5\bin\mysql.exe"
 set "DB_USER=root"
-set "DB_PASS=123456"
+set "DB_PASS="
 set "DB_NAME=ai_resume"
 set "APP_URL=http://localhost:8080/"
 
@@ -22,6 +20,18 @@ echo    管理端：%APP_URL%admin/dashboard.html
 echo ============================================================
 echo.
 
+rem ================= 0/5 加载本地配置（不进入仓库）=================
+rem 密钥、口令与工具链路径统一从 ai-key.local.bat 读取（该文件已被 .gitignore 忽略）
+set "AI_API_KEY="
+set "AI_ENDPOINT="
+set "AI_MODEL="
+if exist "%ROOT%ai-key.local.bat" call "%ROOT%ai-key.local.bat"
+if defined DB_PASSWORD set "DB_PASS=%DB_PASSWORD%"
+if not defined DB_PASS set "DB_PASS=change-me"
+rem 未在本地配置中指定时，回落到环境变量或下方占位符（请按本机实际路径填写）
+if not defined JAVA_HOME set "JAVA_HOME=CHANGE_ME_JDK17_HOME"
+if not defined MAVEN_HOME set "MAVEN_HOME=CHANGE_ME_MAVEN_HOME"
+
 rem ================= 1/5 工具链检查 =================
 if not exist "%JAVA_HOME%\bin\java.exe" goto :err_java
 if not exist "%MAVEN_HOME%\bin\mvn.cmd" goto :err_maven
@@ -31,10 +41,7 @@ set "PATH=%JAVA_HOME%\bin;%MAVEN_HOME%\bin;%PATH%"
 set "MAVEN_OPTS=%MAVEN_OPTS% -Dfile.encoding=UTF-8"
 echo [1/5] 工具链就绪：JDK 17 / Maven 3.9.11 / MySQL 5.5
 
-rem ================= 2/5 AI 密钥 =================
-set "AI_API_KEY="
-if not exist "%ROOT%ai-key.local.bat" goto :no_key
-call "%ROOT%ai-key.local.bat"
+rem ================= 2/5 AI 密钥状态 =================
 if not defined AI_API_KEY goto :no_key
 echo [2/5] 已加载本地 AI 密钥：%AI_ENDPOINT%
 echo       分析模型 %AI_MODEL%
@@ -89,6 +96,9 @@ set "SPRING_PROFILES_ACTIVE=ai"
 set "AI_ENABLED=true"
 set "SERVER__PORT=8080"
 set "SERVER_PORT=8080"
+rem 以环境变量形式传给 Spring Boot，避免明文口令出现在任何配置文件里
+set "DB_USERNAME=%DB_USER%"
+set "DB_PASSWORD=%DB_PASS%"
 
 pushd "%SERVER_DIR%"
 call "%MAVEN_HOME%\bin\mvn.cmd" spring-boot:run

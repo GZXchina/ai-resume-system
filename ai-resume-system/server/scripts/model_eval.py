@@ -33,7 +33,7 @@ ROOT = Path(__file__).resolve().parent.parent
 PROJECT_ROOT = ROOT.parent
 RESULT_DIR = ROOT / "scripts" / "eval_results"
 KEY = os.environ.get("AI_API_KEY", "")
-BASE = os.environ.get("AI_ENDPOINT", "http://10.50.79.225:7864/v1").rstrip("/")
+BASE = os.environ.get("AI_ENDPOINT", "http://ai-gateway.example.com/v1").rstrip("/")
 
 # 与 AiClient.buildPrompt / SYSTEM_PROMPT 保持一致；脚本启动时做一致性守卫
 SYSTEM_PROMPT = (

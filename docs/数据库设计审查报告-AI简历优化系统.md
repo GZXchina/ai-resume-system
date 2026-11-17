@@ -37,7 +37,7 @@
 
 ### DR-001 【重要】同一简历并发发起分析缺少数据库层兜底（BR-ANALYSIS-02 冲突窗口）
 
-- **位置/证据**：[AnalysisService.java#L66](file:///c:/Users/Administrator/Desktop/软件实训课设/ai-resume-system/server/src/main/java/cn/course/airesume/analysis/AnalysisService.java#L66) 先调 `existsRunning(resumeId)` 检查，[#L83](file:///c:/Users/Administrator/Desktop/软件实训课设/ai-resume-system/server/src/main/java/cn/course/airesume/analysis/AnalysisService.java#L83) 再 INSERT；两步之间非原子。schema.sql 的 `analysis_task` 表无任何唯一约束防止同一 `resume_id` 出现两条 `RUNNING` 记录。
+- **位置/证据**：[AnalysisService.java#L66](file:///<PROJECT_ROOT>/ai-resume-system/server/src/main/java/cn/course/airesume/analysis/AnalysisService.java#L66) 先调 `existsRunning(resumeId)` 检查，[#L83](file:///<PROJECT_ROOT>/ai-resume-system/server/src/main/java/cn/course/airesume/analysis/AnalysisService.java#L83) 再 INSERT；两步之间非原子。schema.sql 的 `analysis_task` 表无任何唯一约束防止同一 `resume_id` 出现两条 `RUNNING` 记录。
 - **冲突依据**：需求 BR-ANALYSIS-02 规定"同一简历同一时刻只允许 1 个分析中任务"，验收条件要求"任务总数不增加"。检查-再插入模式下，两个并发请求可同时通过检查，产生 2 条 RUNNING 任务，需求被绕过且应用层无法事后发现。
 - **影响范围**：发起分析接口；后续 AI 回调/超时处理会对同简历双任务重复执行，统计口径失真。
 - **修改建议**（二选一，推荐 A）：
@@ -47,7 +47,7 @@
 
 ### DR-002 【重要】全库无外键约束，引用完整性完全依赖应用层
 
-- **位置/证据**：[schema.sql](file:///c:/Users/Administrator/Desktop/软件实训课设/ai-resume-system/db/schema.sql) 全文无 `FOREIGN KEY`。涉及 8 处引用：`resume.user_id`、`job.user_id`、`resume_education/project/skill.resume_id`、`analysis_task.user_id/resume_id/job_id`、`resume_version.resume_id/source_task_id`。
+- **位置/证据**：[schema.sql](file:///<PROJECT_ROOT>/ai-resume-system/db/schema.sql) 全文无 `FOREIGN KEY`。涉及 8 处引用：`resume.user_id`、`job.user_id`、`resume_education/project/skill.resume_id`、`analysis_task.user_id/resume_id/job_id`、`resume_version.resume_id/source_task_id`。
 - **影响范围**：
   - 已确认应用层**不存在简历删除功能**（全代码仅删除子模块行用于整体替换，见 `ResumeDao.replaceSubModules`），因此当前孤儿数据风险有限；
   - 但 `analysis_task` / `resume_version` 对 `resume` 的引用无数据库保护，种子数据手工维护、后续若增加删除或清理功能，极易产生孤儿版本/孤儿任务；
@@ -58,7 +58,7 @@
 
 ### DR-003 【一般】resume_version 存在冗余索引 idx_version_resume
 
-- **位置/证据**：[schema.sql#L128-L129](file:///c:/Users/Administrator/Desktop/软件实训课设/ai-resume-system/db/schema.sql#L128-L129)：`uk_resume_version (resume_id, version)` 与 `idx_version_resume (resume_id)` 并存。
+- **位置/证据**：[schema.sql#L128-L129](file:///<PROJECT_ROOT>/ai-resume-system/db/schema.sql#L128-L129)：`uk_resume_version (resume_id, version)` 与 `idx_version_resume (resume_id)` 并存。
 - **影响**：唯一索引的最左前缀已完全覆盖 `WHERE resume_id=?` 查询（`listByResume`、`findByVersion`、`maxVersion`），第二个索引纯属冗余，只增加每次写版本时的索引维护成本。
 - **修改建议**：`DROP KEY idx_version_resume`，保留 `uk_resume_version` 即可。
 
@@ -99,7 +99,7 @@
 
 ### DR-009 【建议】排序规则 utf8mb4_general_ci 非 MySQL 8 推荐
 
-- **位置/证据**：[schema.sql#L6](file:///c:/Users/Administrator/Desktop/软件实训课设/ai-resume-system/db/schema.sql#L6) 使用 `utf8mb4_general_ci`。
+- **位置/证据**：[schema.sql#L6](file:///<PROJECT_ROOT>/ai-resume-system/db/schema.sql#L6) 使用 `utf8mb4_general_ci`。
 - **影响**：对部分字符（如全半角、特殊重音字符）相等判断不够准确；`MySQL 8` 默认推荐 `utf8mb4_0900_ai_ci`。课程场景实际影响极小。
 - **修改建议**：新建库时改为 `utf8mb4_0900_ai_ci`；存量库不强制迁移。
 - **复核（2026-10-25）**：实际数据库为 MySQL 5.5.15，无 `utf8mb4_0900_ai_ci`；本项判定**不适用**，保持 `utf8mb4_general_ci`。

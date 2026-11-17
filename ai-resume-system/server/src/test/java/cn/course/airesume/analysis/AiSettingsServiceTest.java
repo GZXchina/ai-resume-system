@@ -150,13 +150,13 @@ class AiSettingsServiceTest {
     void customVendorOverride() {
         Map<String, Object> out = service.updateSettings(body(
                 "vendor", "custom",
-                "endpoint", "http://10.50.79.225:7864/v1",
+                "endpoint", "http://ai-gateway.example.com/v1",
                 "model", "cn:deepseek-v4.1-flash",
                 "apiKey", "wbk_TestOnlyFakeKey0000000000000000000000000",
                 "skipTest", true));
 
         assertEquals("custom", out.get("vendor"));
-        assertEquals("http://10.50.79.225:7864/v1", out.get("endpoint"));
+        assertEquals("http://ai-gateway.example.com/v1", out.get("endpoint"));
         assertEquals("cn:deepseek-v4.1-flash", out.get("model"));
         assertEquals(true, out.get("requiresCustomEndpoint"));
         assertEquals("wbk****GZGs".length(), String.valueOf(out.get("apiKeyMasked")).length());
@@ -174,12 +174,12 @@ class AiSettingsServiceTest {
     @DisplayName("旧接口 updateModel 仍可用：只改模型，不动厂商 / 地址 / 密钥")
     void legacyUpdateModelStillWorks() {
         props.setRuntimeVendor("custom");
-        props.setRuntimeEndpoint("http://10.50.79.225:7864/v1");
+        props.setRuntimeEndpoint("http://ai-gateway.example.com/v1");
 
         Map<String, Object> out = service.updateModel("cn:deepseek-v4.1-flash");
         assertEquals("cn:deepseek-v4.1-flash", out.get("model"));
         assertEquals("custom", props.getRuntimeVendor());
-        assertEquals("http://10.50.79.225:7864/v1", props.getRuntimeEndpoint());
+        assertEquals("http://ai-gateway.example.com/v1", props.getRuntimeEndpoint());
         verify(jdbc).update(contains("INSERT INTO sys_config"), any(Object[].class));
 
         service.updateModel("");

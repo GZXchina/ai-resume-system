@@ -3,7 +3,7 @@
 
 环境变量：
     AI_API_KEY   必填，供应商密钥
-    AI_ENDPOINT  可选，默认 http://10.50.79.225:7864/v1
+    AI_ENDPOINT  可选，默认 http://ai-gateway.example.com/v1
     AI_MODEL     可选，默认 cn:deepseek-v4.1-flash
 
 用法：
@@ -73,7 +73,7 @@ def wait_task(task_id, token, timeout=90):
 
 def main():
     api_key = os.environ.get("AI_API_KEY", "").strip()
-    endpoint = os.environ.get("AI_ENDPOINT", "http://10.50.79.225:7864/v1").strip()
+    endpoint = os.environ.get("AI_ENDPOINT", "http://ai-gateway.example.com/v1").strip()
     model = os.environ.get("AI_MODEL", "cn:deepseek-v4.1-flash").strip()
     if not api_key:
         print("缺少环境变量 AI_API_KEY，已中止（不会读取仓库内密钥）")

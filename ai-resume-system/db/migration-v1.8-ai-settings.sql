@@ -1,6 +1,6 @@
 -- ============================================================
 -- 迁移脚本 v1.8：系统配置表（sys_config），用于管理端选择 AI 模型
--- 执行：mysql -u root -p123456 --default-character-set=utf8mb4 < migration-v1.8-ai-settings.sql
+-- 执行：mysql -u root -p --default-character-set=utf8mb4 < migration-v1.8-ai-settings.sql
 -- 说明：
 --   1) 应用启动时会自动 CREATE TABLE IF NOT EXISTS，本脚本用于手工部署；
 --   2) 可重复执行；

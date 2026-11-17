@@ -38,12 +38,12 @@ class AiPropertiesTest {
         p.setModel("deepseek-chat");
 
         p.setRuntimeVendor("custom");
-        p.setRuntimeEndpoint("http://10.50.79.225:7864/v1");
+        p.setRuntimeEndpoint("http://ai-gateway.example.com/v1");
         p.setRuntimeApiKey("wbk-runtime-key");
         p.setRuntimeModel("cn:deepseek-v4.1-flash");
 
         assertEquals("custom", p.resolveVendor());
-        assertEquals("http://10.50.79.225:7864/v1", p.resolveEndpoint());
+        assertEquals("http://ai-gateway.example.com/v1", p.resolveEndpoint());
         assertEquals("wbk-runtime-key", p.resolveApiKey());
         assertEquals("cn:deepseek-v4.1-flash", p.resolveModel());
     }

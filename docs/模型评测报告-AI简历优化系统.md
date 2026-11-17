@@ -1,7 +1,7 @@
 # 模型效果评测报告 · AI 简历优化系统
 
 > 版本：v1.0　评测日期：2026-10-25
-> 评测对象：内网 OpenAI 兼容网关 `http://10.50.79.225:7864/v1`
+> 评测对象：内网 OpenAI 兼容网关 `http://ai-gateway.example.com/v1`
 > 数据来源：`ai-resume-system/server/scripts/eval_results/model_eval_20261025-175008.json`（原始记录，可复算）
 > 关联需求：FR-ANALYSIS-01（AI 分析）、FR-ADMIN-03（模型配置）
 
