@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>我的简历 · 简历工坊</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+  .resume-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+  .resume-title { display: block; color: var(--ink); }
+  .resume-title:hover { color: var(--pine-700); }
+  .resume-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .resume-summary {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 12.5px;
+    line-height: 1.65;
+    color: var(--ink-sub);
+    min-height: 41px;
+  }
+  .resume-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+</style>
+</head>
+<body data-page="resumes">
+<aside class="app-nav">
+  <div class="brand">
+    <div class="brand-mark">简</div>
+    <div class="brand-text"><strong>简历工坊</strong><span>AI RESUME STUDIO</span></div>
+  </div>
+  <div class="nav-group-label">学生工作区</div>
+  <nav class="nav-list" aria-label="学生端导航">
+    <a class="nav-item" data-nav="dashboard" href="dashboard.html"><span class="nav-ic" data-icon="layout-dashboard"></span><span>工作台</span></a>
+    <a class="nav-item" data-nav="resumes" href="resumes.html"><span class="nav-ic" data-icon="file-text"></span><span>我的简历</span></a>
+    <a class="nav-item" data-nav="jobs" href="jobs.html"><span class="nav-ic" data-icon="briefcase"></span><span>岗位管理</span></a>
+    <a class="nav-item" data-nav="analysis" href="analysis.html"><span class="nav-ic" data-icon="sparkles"></span><span>简历分析</span></a>
+    <a class="nav-item" data-nav="records" href="records.html"><span class="nav-ic" data-icon="history"></span><span>分析记录</span></a>
+    <a class="nav-item" data-nav="versions" href="versions.html"><span class="nav-ic" data-icon="git-compare"></span><span>版本管理</span></a>
+  </nav>
+  <div class="nav-foot">
+    <div class="nav-tip"><span data-icon="shield"></span><span>数据仅保存在本机浏览器</span></div>
+    <div class="user-card">
+      <div class="avatar" id="navAvatar">林</div>
+      <div class="user-meta"><strong id="navUserName">林知远</strong><span>学生账号</span></div>
+      <button class="icon-btn" id="logoutBtn" type="button" title="退出登录" aria-label="退出登录"><span data-icon="log-out"></span></button>
+    </div>
+  </div>
+</aside>
+<main class="app-content">
+  <div class="content-wrap">
+    <div class="page-head reveal" style="--d:0">
+      <div>
+        <div class="breadcrumb"><span>学生工作区</span><span data-icon="chevron-right"></span><span>我的简历</span></div>
+        <h1 class="page-title">我的简历</h1>
+        <p class="page-sub">每份简历对应一个求职方向，版本可追溯。</p>
+      </div>
+      <div class="page-actions">
+        <a class="btn btn-primary" href="resume-edit.html"><span data-icon="plus"></span>新建简历</a>
+      </div>
+    </div>
+
+    <div class="toolbar reveal" style="--d:1">
+      <div class="search-box">
+        <span data-icon="search"></span>
+        <input class="input" id="resumeSearch" type="search" placeholder="搜索简历名称或求职意向" autocomplete="off">
+      </div>
+      <span class="spacer"></span>
+      <span class="small faint" id="resumeCount">共 — 份</span>
+    </div>
+
+    <div class="grid resume-grid" id="resumeGrid">
+      <div class="card">
+        <div class="card-body">
+          <div class="sk" style="height:16px;width:58%;margin-bottom:14px"></div>
+          <div class="sk sk-line w40"></div>
+          <div class="sk sk-line w80"></div>
+          <div class="sk sk-line w60"></div>
+          <div class="sk" style="height:8px;width:100%;margin-top:18px"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <div class="sk" style="height:16px;width:58%;margin-bottom:14px"></div>
+          <div class="sk sk-line w40"></div>
+          <div class="sk sk-line w80"></div>
+          <div class="sk sk-line w60"></div>
+          <div class="sk" style="height:8px;width:100%;margin-top:18px"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <div class="sk" style="height:16px;width:58%;margin-bottom:14px"></div>
+          <div class="sk sk-line w40"></div>
+          <div class="sk sk-line w80"></div>
+          <div class="sk sk-line w60"></div>
+          <div class="sk" style="height:8px;width:100%;margin-top:18px"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+<script src="../mock.js"></script>
+<script src="../store.js"></script>
+<script src="../api.js"></script>
+<script src="../app.js"></script>
+<script>
+  App.init({ role: 'student', page: 'resumes' });
+  (function () {
+    const me = App.Auth.current();
+    if (!me || me.role !== 'student') return;
+
+    const searchInput = document.getElementById('resumeSearch');
+    const grid = document.getElementById('resumeGrid');
+    const countEl = document.getElementById('resumeCount');
+    let debounceTimer = null;
+    let requestSeq = 0;
+
+    function skeletonHtml() {
+      return Array.from({ length: 3 }).map(() => `
+        <div class="card">
+          <div class="card-body">
+            <div class="sk" style="height:16px;width:58%;margin-bottom:14px"></div>
+            <div class="sk sk-line w40"></div>
+            <div class="sk sk-line w80"></div>
+            <div class="sk sk-line w60"></div>
+            <div class="sk" style="height:8px;width:100%;margin-top:18px"></div>
+          </div>
+        </div>`).join('');
+    }
+
+    function showSkeleton() {
+      grid.innerHTML = skeletonHtml();
+      countEl.textContent = '共 — 份';
+    }
+
+    function resumeCard(r, index) {
+      const pct = Math.max(0, Math.min(100, Number(r.completeness) || 0));
+      const summary = r.summary && r.summary.trim() ? r.summary : '尚未填写个人简介。';
+      return `<article class="card reveal" style="--d:${index}">
+        <div class="card-head">
+          <div style="min-width:0">
+            <a class="card-title resume-title truncate" href="resume-edit.html?id=${encodeURIComponent(r.id)}">${App.esc(r.name)}</a>
+            <div class="resume-tags">
+              <span class="tag tag-info">${App.esc(r.target)}</span>
+              <span class="tag tag-neutral">v${r.version || 1}</span>
+            </div>
+          </div>
+        </div>
+        <div class="card-body" style="padding-top:12px">
+          <p class="resume-summary">${App.esc(summary)}</p>
+          <div class="row-between mt-12 small">
+            <span class="faint">完整度</span>
+            <span class="strong num">${pct}%</span>
+          </div>
+          <div class="meter mt-8"><i style="width:${pct}%"></i></div>
+          <div class="field-hint mt-12">v${r.version || 1} 版本 · 更新 ${App.esc(r.updatedAt || '—')}</div>
+        </div>
+        <div class="card-foot">
+          <div class="resume-actions">
+            <a class="btn btn-outline btn-sm" href="resume-edit.html?id=${encodeURIComponent(r.id)}"><span data-icon="pen-line"></span>编辑</a>
+            <a class="btn btn-outline btn-sm" href="versions.html?resumeId=${encodeURIComponent(r.id)}"><span data-icon="git-compare"></span>版本</a>
+            <a class="btn btn-primary btn-sm" href="analysis.html?resume=${encodeURIComponent(r.id)}"><span data-icon="sparkles"></span>用它分析</a>
+          </div>
+        </div>
+      </article>`;
+    }
+
+    function renderEmpty() {
+      countEl.textContent = '共 0 份';
+      grid.innerHTML = `
+        <div class="empty" style="grid-column:1 / -1">
+          <div class="empty-icon" data-icon="file-plus"></div>
+          <div class="empty-title">还没有简历</div>
+          <div class="empty-text">先建立一份结构化简历，才能针对岗位发起分析</div>
+          <a class="btn btn-primary" href="resume-edit.html"><span data-icon="plus"></span>新建简历</a>
+        </div>`;
+      App.renderIcons(grid);
+    }
+
+    function renderSearchEmpty(q) {
+      countEl.textContent = '共 0 份';
+      grid.innerHTML = `
+        <div class="empty" style="grid-column:1 / -1">
+          <div class="empty-icon" data-icon="search"></div>
+          <div class="empty-title">没有找到匹配的简历</div>
+          <div class="empty-text">没有与「${App.esc(q)}」匹配的结果，换个关键词试试</div>
+          <button class="btn btn-outline" type="button" data-clear="1"><span data-icon="refresh-cw"></span>清空搜索</button>
+        </div>`;
+      App.renderIcons(grid);
+    }
+
+    function renderError(message) {
+      countEl.textContent = '共 — 份';
+      grid.innerHTML = `
+        <div class="empty" style="grid-column:1 / -1">
+          <div class="empty-icon" data-icon="alert-triangle"></div>
+          <div class="empty-title">简历列表加载失败</div>
+          <div class="empty-text">${App.esc(message || '请稍后重试')}</div>
+          <button class="btn btn-outline" type="button" data-retry="1"><span data-icon="refresh-cw"></span>重试</button>
+        </div>`;
+      App.renderIcons(grid);
+    }
+
+    function render(rows, q) {
+      if (!rows.length) {
+        if (q) renderSearchEmpty(q); else renderEmpty();
+        return;
+      }
+      countEl.textContent = `共 ${rows.length} 份`;
+      grid.innerHTML = rows.map((r, i) => resumeCard(r, i)).join('');
+      App.renderIcons(grid);
+    }
+
+    async function load(q) {
+      const seq = ++requestSeq;
+      showSkeleton();
+      try {
+        const res = await Api.Resume.list({ q });
+        if (seq !== requestSeq) return;
+        if (res.code !== 0) {
+          App.toast(res.message || '简历加载失败', 'error');
+          renderError(res.message);
+          return;
+        }
+        render(res.data, q);
+      } catch (err) {
+        if (seq !== requestSeq) return;
+        App.toast('简历加载失败，请重试', 'error');
+        renderError('请检查浏览器存储后重试');
+      }
+    }
+
+    searchInput.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => load(searchInput.value.trim()), 250);
+    });
+
+    grid.addEventListener('click', (e) => {
+      if (e.target.closest('[data-retry]')) {
+        load(searchInput.value.trim());
+        return;
+      }
+      if (e.target.closest('[data-clear]')) {
+        clearTimeout(debounceTimer);
+        searchInput.value = '';
+        searchInput.focus();
+        load('');
+      }
+    });
+
+    load('');
+  })();
+</script>
+</body>
+</html>

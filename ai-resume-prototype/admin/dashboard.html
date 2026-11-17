@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>后台概览 · 简历工坊</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+  .bar-pair { display: flex; align-items: flex-end; justify-content: center; gap: 4px; width: 100%; flex: 1; min-height: 0; }
+  .legend { display: flex; align-items: center; gap: 18px; font-size: 11.5px; color: var(--ink-faint); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+</style>
+</head>
+<body data-page="overview">
+<aside class="app-nav app-nav--admin">
+  <div class="brand">
+    <div class="brand-mark">简</div>
+    <div class="brand-text"><strong>简历工坊</strong><span>ADMIN CONSOLE</span></div>
+  </div>
+  <div class="nav-group-label">管理控制台</div>
+  <nav class="nav-list" aria-label="管理端导航">
+    <a class="nav-item" data-nav="overview" href="dashboard.html"><span class="nav-ic" data-icon="gauge"></span><span>后台概览</span></a>
+    <a class="nav-item" data-nav="users" href="users.html"><span class="nav-ic" data-icon="users"></span><span>用户管理</span></a>
+    <a class="nav-item" data-nav="tasks" href="tasks.html"><span class="nav-ic" data-icon="activity"></span><span>任务监管</span></a>
+  </nav>
+  <div class="nav-foot">
+    <div class="nav-tip"><span data-icon="shield"></span><span>只读监管 · 不展示简历正文</span></div>
+    <div class="user-card">
+      <div class="avatar avatar--admin" id="navAvatar">周</div>
+      <div class="user-meta"><strong id="navUserName">周明</strong><span>管理员</span></div>
+      <button class="icon-btn" id="logoutBtn" type="button" title="退出登录" aria-label="退出登录"><span data-icon="log-out"></span></button>
+    </div>
+  </div>
+</aside>
+<main class="app-content">
+  <div class="content-wrap">
+    <div class="page-head">
+      <div>
+        <div class="breadcrumb"><span>管理控制台</span><span data-icon="chevron-right"></span><span>后台概览</span></div>
+        <h1 class="page-title">后台<span class="accent">概览</span></h1>
+        <p class="page-sub">账号、任务与分析方式的运行情况</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-outline" id="refreshBtn" type="button"><span data-icon="refresh-cw"></span>刷新数据</button>
+      </div>
+    </div>
+
+    <div class="grid grid-4" id="statGrid"></div>
+
+    <div class="grid grid-sidebar mt-24">
+      <section class="card reveal" style="--d:1">
+        <div class="card-head">
+          <div>
+            <div class="card-title">近 7 天分析量</div>
+            <div class="card-sub">按任务创建日期统计，含成功与失败</div>
+          </div>
+          <span class="tag tag-neutral"><span data-icon="calendar"></span>7 天</span>
+        </div>
+        <div class="card-body" id="chartBody"></div>
+        <div class="card-foot">
+          <div class="row wrap" style="justify-content:space-between">
+            <div class="legend">
+              <span><i style="background:var(--pine-700)"></i>全部</span>
+              <span><i style="background:var(--amber-500)"></i>成功</span>
+            </div>
+            <span class="small faint" id="chartTotal">统计中…</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card reveal" style="--d:2">
+        <div class="card-head">
+          <div>
+            <div class="card-title">系统状态</div>
+            <div class="card-sub">演示环境的服务与策略说明</div>
+          </div>
+          <span class="tag tag-success"><span data-icon="shield"></span>只读监管</span>
+        </div>
+        <div class="card-body">
+          <div class="kv">
+            <div class="kv-row"><span class="kv-key">AI 服务</span><span class="kv-val"><span class="tag tag-success">正常</span></span></div>
+            <div class="kv-row"><span class="kv-key">规则降级</span><span class="kv-val"><span class="tag tag-rule">可用</span></span></div>
+            <div class="kv-row"><span class="kv-key">数据存储</span><span class="kv-val"><span class="tag tag-neutral">本地浏览器</span></span></div>
+            <div class="kv-row"><span class="kv-key">隐私策略</span><span class="kv-val"><span class="tag tag-info">管理员不可见简历正文</span></span></div>
+          </div>
+          <p class="small faint mt-16">原型演示数据，非真实运行环境。</p>
+        </div>
+      </section>
+    </div>
+
+    <section class="card reveal mt-24" style="--d:3">
+      <div class="card-head">
+        <div>
+          <div class="card-title">最近任务</div>
+          <div class="card-sub">最新 6 条分析任务 · 仅展示任务元信息</div>
+        </div>
+        <a class="link-btn" href="tasks.html">全部任务 <span data-icon="arrow-right"></span></a>
+      </div>
+      <div class="tbl-wrap" id="recentBody" style="margin-top:16px"></div>
+    </section>
+  </div>
+</main>
+<script src="../mock.js"></script>
+<script src="../store.js"></script>
+<script src="../api.js"></script>
+<script src="../app.js"></script>
+<script>
+App.init({ role:'admin', page:'overview' });
+
+(function () {
+  const $ = App.qs;
+  const statGrid = $('#statGrid');
+  const chartBody = $('#chartBody');
+  const chartTotal = $('#chartTotal');
+  const recentBody = $('#recentBody');
+  const refreshBtn = $('#refreshBtn');
+
+  let loading = false;
+
+  function emptyBlock(icon, title, text) {
+    return `<div class="empty">
+      <div class="empty-icon" data-icon="${icon}"></div>
+      <div class="empty-title">${title}</div>
+      <div class="empty-text">${text}</div>
+    </div>`;
+  }
+
+  function errorBlock(message) {
+    return `<div class="empty">
+      <div class="empty-icon" data-icon="alert-triangle"></div>
+      <div class="empty-title">数据加载失败</div>
+      <div class="empty-text">${App.esc(message || '请稍后重试')}</div>
+      <button class="btn btn-outline btn-sm" type="button" data-retry>重新加载</button>
+    </div>`;
+  }
+
+  function bindRetry(container, fn) {
+    const btn = container.querySelector('[data-retry]');
+    if (btn) btn.addEventListener('click', fn);
+  }
+
+  function skStats() {
+    statGrid.innerHTML = Array.from({ length: 4 }, () => `<div class="stat-card">
+      <div class="sk sk-line w40"></div>
+      <div class="sk" style="height:30px;width:56%;margin:12px 0 12px"></div>
+      <div class="sk sk-line w60" style="margin-bottom:0"></div>
+    </div>`).join('');
+  }
+
+  function skChart() {
+    chartTotal.textContent = '统计中…';
+    chartBody.innerHTML = `<div class="barchart">${[38, 52, 44, 66, 58, 73, 49].map((h) => `<div class="bar-col">
+      <div class="sk" style="height:${h}%;width:22px;max-width:38px"></div>
+    </div>`).join('')}</div>`;
+  }
+
+  function skRecent() {
+    const cells = '<td><div class="sk sk-line" style="width:72%"></div></td>';
+    recentBody.innerHTML = `<table class="tbl">
+      <thead><tr><th>用户</th><th>简历</th><th>岗位</th><th>状态</th><th>方式</th><th>得分</th><th>创建时间</th></tr></thead>
+      <tbody>${Array.from({ length: 5 }, () => `<tr>${cells.repeat(7)}</tr>`).join('')}</tbody>
+    </table>`;
+  }
+
+  function renderStats(d) {
+    const cards = [
+      { label: '学生账号', icon: 'users', value: d.users, meta: `启用 ${d.activeUsers} / 总数 ${d.users}`, accent: 'var(--pine-500)', d: 0 },
+      { label: '分析任务', icon: 'activity', value: d.analyses, meta: `成功 ${d.success} · 失败 ${d.failed}`, accent: 'var(--pine-700)', d: 1 },
+      { label: '成功率', icon: 'check-circle', value: `${d.successRate}<small>%</small>`, meta: `基于 ${d.analyses} 次任务`, accent: 'var(--success)', d: 2 },
+      { label: '规则模式占比', icon: 'shield', value: `${d.ruleShare}<small>%</small>`, meta: `规则 ${d.rule} 次 · AI ${Math.max(0, d.analyses - d.rule)} 次`, accent: 'var(--amber-500)', d: 3 }
+    ];
+    statGrid.innerHTML = cards.map((c) => `<div class="stat-card reveal" style="--accent:${c.accent};--d:${c.d}">
+      <div class="stat-label"><span data-icon="${c.icon}"></span>${c.label}</div>
+      <div class="stat-value">${c.value}</div>
+      <div class="stat-meta">${c.meta}</div>
+    </div>`).join('');
+    App.renderIcons(statGrid);
+  }
+
+  function renderChart(chart) {
+    const max = Math.max(1, ...chart.map((x) => x.count));
+    const total = chart.reduce((s, x) => s + x.count, 0);
+    chartTotal.textContent = `近 7 天共 ${total} 次`;
+    if (!total) {
+      chartBody.innerHTML = emptyBlock('activity', '近 7 天暂无分析', '学生发起分析后，这里会显示每日任务量');
+      App.renderIcons(chartBody);
+      return;
+    }
+    chartBody.innerHTML = `<div class="barchart">${chart.map((x) => {
+      const h = Math.max(6, Math.round(x.count / max * 100));
+      const hs = x.success ? Math.max(6, Math.round(x.success / max * 100)) : 0;
+      return `<div class="bar-col" title="${x.day}：总数 ${x.count} · 成功 ${x.success}">
+        <span class="bar-value">${x.count}</span>
+        <div class="bar-pair">
+          <div class="bar" style="height:${h}%;width:16px"></div>
+          <div class="bar alt" style="height:${hs}%;width:16px"></div>
+        </div>
+        <span class="bar-label">${x.day}</span>
+      </div>`;
+    }).join('')}</div>`;
+  }
+
+  function renderRecent(rows) {
+    const list = rows.slice(0, 6);
+    if (!list.length) {
+      recentBody.innerHTML = `<div style="padding:6px 22px 22px">${emptyBlock('activity', '暂无分析任务', '学生发起分析后，最新任务会出现在这里')}</div>`;
+      App.renderIcons(recentBody);
+      return;
+    }
+    recentBody.innerHTML = `<table class="tbl">
+      <thead><tr><th>用户</th><th>简历</th><th>岗位</th><th>状态</th><th>方式</th><th>得分</th><th>创建时间</th></tr></thead>
+      <tbody>${list.map((t) => `<tr>
+        <td class="cell-main">${App.esc(t.userName)}</td>
+        <td><div class="truncate" style="max-width:190px" title="${App.esc(t.resumeName)}">${App.esc(t.resumeName)}</div></td>
+        <td><div class="truncate" style="max-width:210px" title="${App.esc(t.jobTitle)}">${App.esc(t.jobTitle)}</div></td>
+        <td>${App.statusTag(t.status)}</td>
+        <td>${App.modeTag(t.mode)}</td>
+        <td class="num">${t.score == null ? '<span class="faint">—</span>' : t.score}</td>
+        <td class="small faint" title="${App.esc(t.createdAt)}">${App.fmtShort(t.createdAt)}</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+    App.renderIcons(recentBody);
+  }
+
+  async function load(showToast) {
+    if (loading) return;
+    loading = true;
+    refreshBtn.disabled = true;
+    refreshBtn.innerHTML = '<span class="spinner"></span>刷新中';
+    skStats();
+    skChart();
+    skRecent();
+
+    const [statsRes, tasksRes] = await Promise.all([Api.Admin.stats(), Api.Admin.tasks()]);
+
+    loading = false;
+    refreshBtn.disabled = false;
+    refreshBtn.innerHTML = '<span data-icon="refresh-cw"></span>刷新数据';
+    App.renderIcons(refreshBtn);
+
+    if (statsRes.code !== 0) {
+      App.toast(statsRes.message || '统计数据加载失败', 'error');
+      statGrid.innerHTML = `<div style="grid-column:1/-1">${errorBlock(statsRes.message)}</div>`;
+      chartBody.innerHTML = errorBlock(statsRes.message);
+      chartTotal.textContent = '—';
+      App.renderIcons(statGrid);
+      App.renderIcons(chartBody);
+      bindRetry(statGrid, () => load(false));
+      bindRetry(chartBody, () => load(false));
+    } else {
+      renderStats(statsRes.data);
+      renderChart(statsRes.data.chart);
+    }
+
+    if (tasksRes.code !== 0) {
+      App.toast(tasksRes.message || '任务数据加载失败', 'error');
+      recentBody.innerHTML = `<div style="padding:6px 22px 22px">${errorBlock(tasksRes.message)}</div>`;
+      App.renderIcons(recentBody);
+      bindRetry(recentBody, () => load(false));
+    } else {
+      renderRecent(tasksRes.data);
+    }
+
+    if (showToast && statsRes.code === 0 && tasksRes.code === 0) {
+      App.toast('数据已刷新', 'success');
+    }
+  }
+
+  refreshBtn.addEventListener('click', () => load(true));
+  load(false);
+})();
+</script>
+</body>
+</html>

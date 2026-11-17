@@ -1,0 +1,62 @@
+# ===== 本地密钥 / 环境配置（严禁提交）=====
+ai-key.local.bat
+*.local.bat
+.env
+.env.*
+application-local.yml
+application-local.properties
+
+# ===== Java / Maven =====
+target/
+build/
+out/
+*.class
+*.jar
+*.war
+!.mvn/wrapper/maven-wrapper.jar
+mvnw
+mvnw.cmd
+
+# ===== IDE / 编辑器 =====
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.project
+.classpath
+*.swp
+
+# ===== 运行日志与临时文件 =====
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+hs_err_pid*.log
+
+# ===== Node（走查脚本依赖）=====
+node_modules/
+package-lock.json
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# ===== 操作系统 =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== 答辩材料（不发布）=====
+AI简历优化系统-答辩PPT.pptx
+AI简历优化系统-答辩PPT/
+.slidep/
+docs/AI简历优化系统-答辩说明文档.md
+
+# ===== 工具与智能体本地数据 =====
+.trae/
+.workbuddy/

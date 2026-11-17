@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>后台概览 · 简历工坊</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+  .bar-pair { display: flex; align-items: flex-end; justify-content: center; gap: 4px; width: 100%; flex: 1; min-height: 0; }
+  .legend { display: flex; align-items: center; gap: 18px; font-size: 11.5px; color: var(--ink-faint); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+</style>
+</head>
+<body data-page="overview">
+<aside class="app-nav app-nav--admin">
+  <div class="brand">
+    <div class="brand-mark">简</div>
+    <div class="brand-text"><strong>简历工坊</strong><span>ADMIN CONSOLE</span></div>
+  </div>
+  <div class="nav-group-label">管理控制台</div>
+  <nav class="nav-list" aria-label="管理端导航">
+    <a class="nav-item" data-nav="overview" href="dashboard.html"><span class="nav-ic" data-icon="gauge"></span><span>后台概览</span></a>
+    <a class="nav-item" data-nav="users" href="users.html"><span class="nav-ic" data-icon="users"></span><span>用户管理</span></a>
+    <a class="nav-item" data-nav="tasks" href="tasks.html"><span class="nav-ic" data-icon="activity"></span><span>任务监管</span></a>
+  </nav>
+  <div class="nav-foot">
+    <div class="nav-tip"><span data-icon="shield"></span><span>只读监管 · 不展示简历正文</span></div>
+    <div class="user-card">
+      <div class="avatar avatar--admin" id="navAvatar">周</div>
+      <div class="user-meta"><strong id="navUserName">周明</strong><span>管理员</span></div>
+      <button class="icon-btn" id="logoutBtn" type="button" title="退出登录" aria-label="退出登录"><span data-icon="log-out"></span></button>
+    </div>
+  </div>
+</aside>
+<main class="app-content">
+  <div class="content-wrap">
+    <div class="page-head">
+      <div>
+        <div class="breadcrumb"><span>管理控制台</span><span data-icon="chevron-right"></span><span>后台概览</span></div>
+        <h1 class="page-title">后台<span class="accent">概览</span></h1>
+        <p class="page-sub">账号、任务与分析方式的运行情况</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-outline" id="refreshBtn" type="button"><span data-icon="refresh-cw"></span>刷新数据</button>
+      </div>
+    </div>
+
+    <div class="grid grid-4" id="statGrid"></div>
+
+    <div class="grid grid-sidebar mt-24">
+      <section class="card reveal" style="--d:1">
+        <div class="card-head">
+          <div>
+            <div class="card-title">近 7 天分析量</div>
+            <div class="card-sub">按任务创建日期统计，含成功与失败</div>
+          </div>
+          <span class="tag tag-neutral"><span data-icon="calendar"></span>7 天</span>
+        </div>
+        <div class="card-body" id="chartBody"></div>
+        <div class="card-foot">
+          <div class="row wrap" style="justify-content:space-between">
+            <div class="legend">
+              <span><i style="background:var(--pine-700)"></i>全部</span>
+              <span><i style="background:var(--amber-500)"></i>成功</span>
+            </div>
+            <span class="small faint" id="chartTotal">统计中…</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card reveal" style="--d:2">
+        <div class="card-head">
+          <div>
+            <div class="card-title">系统状态</div>
+            <div class="card-sub">AI 配置、数据存储与凭据策略</div>
+          </div>
+          <span class="tag tag-success"><span data-icon="shield"></span>只读监管</span>
+        </div>
+        <div class="card-body" id="systemBody">
+          <div class="row"><span class="spinner"></span><span class="muted small">读取系统状态…</span></div>
+        </div>
+      </section>
+    </div>
+
+    <section class="card reveal mt-24" style="--d:3">
+      <div class="card-head">
+        <div>
+          <div class="card-title">AI 模型设置</div>
+          <div class="card-sub">选择厂商并配置接口地址与 API-KEY；保存后对后续分析立即生效，密钥加密存储</div>
+        </div>
+        <span class="tag tag-neutral" id="modelBadge">读取中…</span>
+      </div>
+      <div class="card-body">
+        <div class="stack" style="gap:16px">
+          <div class="grid grid-2">
+            <div class="field">
+              <label class="field-label" for="vendorSelect">AI 厂商</label>
+              <select class="select" id="vendorSelect" disabled>
+                <option>读取厂商清单…</option>
+              </select>
+              <div class="field-hint" id="vendorHint">切换厂商会自动填充该厂商的默认接口地址与模型，仍可手动修改</div>
+            </div>
+            <div class="field">
+              <label class="field-label" for="endpointInput">API 接口地址</label>
+              <div class="row" style="gap:8px">
+                <input class="input" id="endpointInput" type="text" placeholder="https://api.example.com/v1" autocomplete="off" spellcheck="false" style="flex:1">
+                <button class="btn btn-ghost btn-sm" type="button" id="resetEndpointBtn">恢复默认</button>
+              </div>
+              <div class="field-hint" id="endpointHint">需以 http:// 或 https:// 开头，通常以 /v1 结尾</div>
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label" for="apiKeyInput">API-KEY</label>
+            <div class="row" style="gap:8px">
+              <input class="input" id="apiKeyInput" type="password" placeholder="留空表示沿用已保存的密钥" autocomplete="new-password" spellcheck="false" style="flex:1">
+              <button class="btn btn-ghost btn-sm" type="button" id="clearKeyBtn">清除密钥</button>
+            </div>
+            <div class="field-hint" id="apiKeyHint">密钥使用 AES-GCM 加密后写入 sys_config，页面只显示掩码</div>
+          </div>
+          <div class="field">
+            <label class="field-label" for="modelSelect">分析模型</label>
+            <select class="select" id="modelSelect" disabled>
+              <option>读取模型清单…</option>
+            </select>
+            <div class="field-hint" id="modelHint">清单由 AI 网关提供，标注多模态与积分倍率</div>
+          </div>
+          <div class="field hidden" id="customField">
+            <label class="field-label" for="customModelInput">自定义模型 ID</label>
+            <input class="input" id="customModelInput" type="text" placeholder="例如 cn:glm-5.3" autocomplete="off" spellcheck="false">
+            <div class="field-hint">允许字母、数字与 : . _ / -，长度 2~80；请确认目标网关支持该模型</div>
+          </div>
+        </div>
+        <div class="row mt-16" style="gap:8px;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm" type="button" id="testBtn"><span data-icon="activity"></span>连通性测试</button>
+          <button class="btn btn-primary btn-sm" type="button" id="saveModelBtn"><span data-icon="check"></span>保存配置</button>
+          <button class="btn btn-outline btn-sm" type="button" id="refreshModelsBtn"><span data-icon="refresh-cw"></span>刷新清单</button>
+          <button class="btn btn-ghost btn-sm" type="button" id="resetModelBtn">恢复厂商默认</button>
+          <span class="small faint" id="modelStatus"></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="card reveal mt-24" style="--d:3">
+      <div class="card-head">
+        <div>
+          <div class="card-title">质量与反馈</div>
+          <div class="card-sub">基于全部成功任务：反馈有用率、分析方式与高频缺失关键词</div>
+        </div>
+        <span class="tag tag-neutral" id="qualityBadge">统计中…</span>
+      </div>
+      <div class="card-body">
+        <div class="grid grid-4" id="qualityStats"></div>
+        <div class="grid grid-sidebar mt-24">
+          <div>
+            <div class="small strong">JD 缺失关键词 Top 8</div>
+            <div class="chips mt-12" id="topMissing"><span class="small faint">统计中…</span></div>
+            <div class="small faint mt-12">按成功任务中缺失关键词的出现次数聚合，可用于调整课程演示 JD。</div>
+          </div>
+          <div>
+            <div class="small strong">分析方式分布</div>
+            <div class="mt-8" id="modeStats"><span class="small faint">统计中…</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card reveal mt-24" style="--d:4">
+      <div class="card-head">
+        <div>
+          <div class="card-title">最近任务</div>
+          <div class="card-sub">最新 6 条分析任务 · 仅展示任务元信息</div>
+        </div>
+        <a class="link-btn" href="tasks.html">全部任务 <span data-icon="arrow-right"></span></a>
+      </div>
+      <div class="tbl-wrap" id="recentBody" style="margin-top:16px"></div>
+    </section>
+  </div>
+</main>
+<script src="../api.js"></script>
+<script src="../app.js"></script>
+<script>
+App.init({ role:'admin', page:'overview' });
+
+(function () {
+  const $ = App.qs;
+  const statGrid = $('#statGrid');
+  const chartBody = $('#chartBody');
+  const chartTotal = $('#chartTotal');
+  const recentBody = $('#recentBody');
+  const qualityStats = $('#qualityStats');
+  const qualityBadge = $('#qualityBadge');
+  const topMissing = $('#topMissing');
+  const modeStats = $('#modeStats');
+  const systemBody = $('#systemBody');
+  const refreshBtn = $('#refreshBtn');
+  const modelSelect = $('#modelSelect');
+  const modelHint = $('#modelHint');
+  const modelBadge = $('#modelBadge');
+  const customField = $('#customField');
+  const customModelInput = $('#customModelInput');
+  const saveModelBtn = $('#saveModelBtn');
+  const refreshModelsBtn = $('#refreshModelsBtn');
+  const resetModelBtn = $('#resetModelBtn');
+  const modelStatus = $('#modelStatus');
+  const vendorSelect = $('#vendorSelect');
+  const vendorHint = $('#vendorHint');
+  const endpointInput = $('#endpointInput');
+  const endpointHint = $('#endpointHint');
+  const resetEndpointBtn = $('#resetEndpointBtn');
+  const apiKeyInput = $('#apiKeyInput');
+  const apiKeyHint = $('#apiKeyHint');
+  const clearKeyBtn = $('#clearKeyBtn');
+  const testBtn = $('#testBtn');
+
+  const CUSTOM_OPT = '__custom__';
+  let aiModels = [];
+  let aiCurrent = '';
+  let aiVendors = [];
+  let aiSettings = {};
+  let clearApiKey = false;
+
+  let loading = false;
+
+  function emptyBlock(icon, title, text) {
+    return `<div class="empty">
+      <div class="empty-icon" data-icon="${icon}"></div>
+      <div class="empty-title">${title}</div>
+      <div class="empty-text">${text}</div>
+    </div>`;
+  }
+
+  function errorBlock(message) {
+    return `<div class="empty">
+      <div class="empty-icon" data-icon="alert-triangle"></div>
+      <div class="empty-title">数据加载失败</div>
+      <div class="empty-text">${App.esc(message || '请稍后重试')}</div>
+      <button class="btn btn-outline btn-sm" type="button" data-retry>重新加载</button>
+    </div>`;
+  }
+
+  function bindRetry(container, fn) {
+    const btn = container.querySelector('[data-retry]');
+    if (btn) btn.addEventListener('click', fn);
+  }
+
+  function skStats() {
+    statGrid.innerHTML = Array.from({ length: 4 }, () => `<div class="stat-card">
+      <div class="sk sk-line w40"></div>
+      <div class="sk" style="height:30px;width:56%;margin:12px 0 12px"></div>
+      <div class="sk sk-line w60" style="margin-bottom:0"></div>
+    </div>`).join('');
+  }
+
+  function skChart() {
+    chartTotal.textContent = '统计中…';
+    chartBody.innerHTML = `<div class="barchart">${[38, 52, 44, 66, 58, 73, 49].map((h) => `<div class="bar-col">
+      <div class="sk" style="height:${h}%;width:22px;max-width:38px"></div>
+    </div>`).join('')}</div>`;
+  }
+
+  function skRecent() {
+    const cells = '<td><div class="sk sk-line" style="width:72%"></div></td>';
+    recentBody.innerHTML = `<table class="tbl">
+      <thead><tr><th>用户</th><th>简历</th><th>岗位</th><th>状态</th><th>方式</th><th>得分</th><th>创建时间</th></tr></thead>
+      <tbody>${Array.from({ length: 5 }, () => `<tr>${cells.repeat(7)}</tr>`).join('')}</tbody>
+    </table>`;
+  }
+
+  function skQuality() {
+    qualityBadge.textContent = '统计中…';
+    qualityStats.innerHTML = Array.from({ length: 4 }, () => `<div class="stat-card">
+      <div class="sk sk-line w40"></div>
+      <div class="sk" style="height:30px;width:56%;margin:12px 0 12px"></div>
+      <div class="sk sk-line w60"></div>
+    </div>`).join('');
+    topMissing.innerHTML = '<div class="sk sk-line w60"></div><div class="sk sk-line w40 mt-8"></div>';
+    modeStats.innerHTML = '<div class="sk sk-line w80"></div><div class="sk sk-line w60 mt-8"></div>';
+  }
+
+  function renderSystem(s) {
+    const aiTag = !s.aiEnabled
+      ? '<span class="tag tag-rule">未启用 · 规则模式</span>'
+      : (s.aiUsable
+        ? '<span class="tag tag-success">已启用</span>'
+        : '<span class="tag tag-warn">已启用但未配置密钥 · 规则模式</span>');
+    systemBody.innerHTML = `<div class="kv">
+      <div class="kv-row"><span class="kv-key">AI 服务</span><span class="kv-val">${aiTag}</span></div>
+      <div class="kv-row"><span class="kv-key">模型</span><span class="kv-val small" id="sysModel">${App.esc(s.aiModel || '—')}</span></div>
+      <div class="kv-row"><span class="kv-key">数据存储</span><span class="kv-val">${App.esc(s.storage)} ${App.esc(s.dbVersion)}</span></div>
+      <div class="kv-row"><span class="kv-key">登录凭证</span><span class="kv-val small">${App.esc(s.tokenStore)}</span></div>
+    </div>
+    <p class="small faint mt-16">数据来自本机服务与数据库；管理员仅可见任务元信息，不展示简历正文与建议全文。</p>`;
+  }
+
+  function renderQuality(q) {
+    const f = q.feedback || {};
+    const ai = (q.modes || []).find((m) => m.mode === 'ai') || { count: 0, share: 0, avgScore: 0 };
+    const rule = (q.modes || []).find((m) => m.mode === 'rule') || { count: 0, share: 0, avgScore: 0 };
+    qualityBadge.textContent = `成功任务 ${f.successTotal || 0} 次`;
+
+    const cards = [
+      { label: '反馈有用率', icon: 'star', value: `${f.usefulRate || 0}<small>%</small>`, meta: `有用 ${f.useful || 0} / 已反馈 ${f.total || 0}`, accent: 'var(--success)', d: 0 },
+      { label: '反馈覆盖率', icon: 'check-circle', value: `${f.coverage || 0}<small>%</small>`, meta: `未反馈 ${f.none || 0} / 成功 ${f.successTotal || 0}`, accent: 'var(--pine-500)', d: 1 },
+      { label: 'AI 模式占比', icon: 'sparkles', value: `${ai.share}<small>%</small>`, meta: `AI ${ai.count} 次 · 均分 ${ai.avgScore}`, accent: 'var(--pine-700)', d: 2 },
+      { label: '降级次数', icon: 'alert-triangle', value: `${q.fallbackCount || 0}`, meta: 'AI 不可达时自动转规则', accent: 'var(--amber-500)', d: 3 }
+    ];
+    qualityStats.innerHTML = cards.map((c) => `<div class="stat-card reveal" style="--accent:${c.accent};--d:${c.d}">
+      <div class="stat-label"><span data-icon="${c.icon}"></span>${c.label}</div>
+      <div class="stat-value">${c.value}</div>
+      <div class="stat-meta">${c.meta}</div>
+    </div>`).join('');
+    App.renderIcons(qualityStats);
+
+    const top = q.topMissing || [];
+    topMissing.innerHTML = top.length
+      ? top.map((x) => `<span class="chip">${App.esc(x.keyword)} <span class="faint">×${x.count}</span></span>`).join('')
+      : '<span class="small faint">暂无缺失关键词数据</span>';
+
+    modeStats.innerHTML = `<div class="kv">
+        <div class="kv-row"><span class="kv-key">AI 模式</span><span class="kv-val">${ai.count} 次 · ${ai.share}% · 均分 ${ai.avgScore}</span></div>
+        <div class="kv-row"><span class="kv-key">规则模式</span><span class="kv-val">${rule.count} 次 · ${rule.share}% · 均分 ${rule.avgScore}</span></div>
+      </div>
+      <div class="meter mt-12"><i style="width:${Math.max(0, Math.min(100, ai.share))}%"></i></div>
+      <div class="small faint mt-8">进度条表示 AI 模式占比；规则模式包含未启用 AI 与运行期降级。</div>`;
+  }
+
+  function renderStats(d) {
+    const cards = [
+      { label: '学生账号', icon: 'users', value: d.users, meta: `启用 ${d.activeUsers} / 总数 ${d.users}`, accent: 'var(--pine-500)', d: 0 },
+      { label: '分析任务', icon: 'activity', value: d.analyses, meta: `成功 ${d.success} · 失败 ${d.failed}`, accent: 'var(--pine-700)', d: 1 },
+      { label: '成功率', icon: 'check-circle', value: `${d.successRate}<small>%</small>`, meta: `基于 ${d.analyses} 次任务`, accent: 'var(--success)', d: 2 },
+      { label: '规则模式占比', icon: 'shield', value: `${d.ruleShare}<small>%</small>`, meta: `规则 ${d.rule} 次 · AI ${Math.max(0, d.analyses - d.rule)} 次`, accent: 'var(--amber-500)', d: 3 }
+    ];
+    statGrid.innerHTML = cards.map((c) => `<div class="stat-card reveal" style="--accent:${c.accent};--d:${c.d}">
+      <div class="stat-label"><span data-icon="${c.icon}"></span>${c.label}</div>
+      <div class="stat-value">${c.value}</div>
+      <div class="stat-meta">${c.meta}</div>
+    </div>`).join('');
+    App.renderIcons(statGrid);
+  }
+
+  function renderChart(chart) {
+    const max = Math.max(1, ...chart.map((x) => x.count));
+    const total = chart.reduce((s, x) => s + x.count, 0);
+    chartTotal.textContent = `近 7 天共 ${total} 次`;
+    if (!total) {
+      chartBody.innerHTML = emptyBlock('activity', '近 7 天暂无分析', '学生发起分析后，这里会显示每日任务量');
+      App.renderIcons(chartBody);
+      return;
+    }
+    chartBody.innerHTML = `<div class="barchart">${chart.map((x) => {
+      const h = Math.max(6, Math.round(x.count / max * 100));
+      const hs = x.success ? Math.max(6, Math.round(x.success / max * 100)) : 0;
+      return `<div class="bar-col" title="${x.day}：总数 ${x.count} · 成功 ${x.success}">
+        <span class="bar-value">${x.count}</span>
+        <div class="bar-pair">
+          <div class="bar" style="height:${h}%;width:16px"></div>
+          <div class="bar alt" style="height:${hs}%;width:16px"></div>
+        </div>
+        <span class="bar-label">${x.day}</span>
+      </div>`;
+    }).join('')}</div>`;
+  }
+
+  function renderRecent(rows) {
+    const list = rows.slice(0, 6);
+    if (!list.length) {
+      recentBody.innerHTML = `<div style="padding:6px 22px 22px">${emptyBlock('activity', '暂无分析任务', '学生发起分析后，最新任务会出现在这里')}</div>`;
+      App.renderIcons(recentBody);
+      return;
+    }
+    recentBody.innerHTML = `<table class="tbl">
+      <thead><tr><th>用户</th><th>简历</th><th>岗位</th><th>状态</th><th>方式</th><th>得分</th><th>创建时间</th></tr></thead>
+      <tbody>${list.map((t) => `<tr>
+        <td class="cell-main">${App.esc(t.userName)}</td>
+        <td><div class="truncate" style="max-width:190px" title="${App.esc(t.resumeName)}">${App.esc(t.resumeName)}</div></td>
+        <td><div class="truncate" style="max-width:210px" title="${App.esc(t.jobTitle)}">${App.esc(t.jobTitle)}</div></td>
+        <td>${App.statusTag(t.status)}</td>
+        <td>${App.modeTag(t.mode)}</td>
+        <td class="num">${t.score == null ? '<span class="faint">—</span>' : t.score}</td>
+        <td class="small faint" title="${App.esc(t.createdAt)}">${App.fmtShort(t.createdAt)}</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+    App.renderIcons(recentBody);
+  }
+
+  async function load(showToast) {
+    if (loading) return;
+    loading = true;
+    refreshBtn.disabled = true;
+    refreshBtn.innerHTML = '<span class="spinner"></span>刷新中';
+    skStats();
+    skChart();
+    skRecent();
+    skQuality();
+    systemBody.innerHTML = '<div class="row"><span class="spinner"></span><span class="small faint">读取系统状态…</span></div>';
+
+    const [statsRes, tasksRes, qualityRes] = await Promise.all([
+      Api.Admin.stats(), Api.Admin.tasks(), Api.Admin.quality()
+    ]);
+
+    loading = false;
+    refreshBtn.disabled = false;
+    refreshBtn.innerHTML = '<span data-icon="refresh-cw"></span>刷新数据';
+    App.renderIcons(refreshBtn);
+
+    if (statsRes.code !== 0) {
+      App.toast(statsRes.message || '统计数据加载失败', 'error');
+      statGrid.innerHTML = `<div style="grid-column:1/-1">${errorBlock(statsRes.message)}</div>`;
+      chartBody.innerHTML = errorBlock(statsRes.message);
+      chartTotal.textContent = '—';
+      App.renderIcons(statGrid);
+      App.renderIcons(chartBody);
+      bindRetry(statGrid, () => load(false));
+      bindRetry(chartBody, () => load(false));
+    } else {
+      renderStats(statsRes.data);
+      renderChart(statsRes.data.chart);
+    }
+
+    if (tasksRes.code !== 0) {
+      App.toast(tasksRes.message || '任务数据加载失败', 'error');
+      recentBody.innerHTML = `<div style="padding:6px 22px 22px">${errorBlock(tasksRes.message)}</div>`;
+      App.renderIcons(recentBody);
+      bindRetry(recentBody, () => load(false));
+    } else {
+      renderRecent(tasksRes.data);
+    }
+
+    if (qualityRes.code !== 0) {
+      App.toast(qualityRes.message || '质量统计加载失败', 'error');
+      qualityBadge.textContent = '—';
+      qualityStats.innerHTML = `<div style="grid-column:1/-1">${errorBlock(qualityRes.message)}</div>`;
+      topMissing.innerHTML = '<span class="small faint">—</span>';
+      modeStats.innerHTML = '<span class="small faint">—</span>';
+      systemBody.innerHTML = errorBlock(qualityRes.message);
+      App.renderIcons(qualityStats);
+      App.renderIcons(systemBody);
+      bindRetry(qualityStats, () => load(false));
+      bindRetry(systemBody, () => load(false));
+    } else {
+      renderQuality(qualityRes.data);
+      renderSystem(qualityRes.data.system || {});
+    }
+
+    if (showToast && statsRes.code === 0 && tasksRes.code === 0 && qualityRes.code === 0) {
+      App.toast('数据已刷新', 'success');
+    }
+  }
+
+  /* ---------------- AI 模型设置 ---------------- */
+
+  function toggleCustomField() {
+    const custom = modelSelect.value === CUSTOM_OPT;
+    customField.classList.toggle('hidden', !custom);
+    if (custom && !customModelInput.value.trim()) customModelInput.value = aiCurrent || '';
+  }
+
+  function fillModelSelect() {
+    const inList = !!aiCurrent && aiModels.some((m) => m.id === aiCurrent);
+    const opts = aiModels.map((m) => {
+      const label = m.name && m.name !== m.id ? `${m.name} — ${m.id}` : m.id;
+      const marks = [m.supportsImages ? '多模态' : '文本', m.credits].filter(Boolean).join(' · ');
+      return `<option value="${App.esc(m.id)}"${m.id === aiCurrent ? ' selected' : ''}>${App.esc(label)}${marks ? '（' + App.esc(marks) + '）' : ''}</option>`;
+    }).join('');
+    const customLabel = aiCurrent && !inList ? `自定义（当前：${aiCurrent}）` : '自定义模型…';
+    modelSelect.innerHTML = opts
+      + `<option value="${CUSTOM_OPT}"${(!aiCurrent || !inList) ? ' selected' : ''}>${App.esc(customLabel)}</option>`;
+    modelSelect.disabled = false;
+    toggleCustomField();
+  }
+
+  function vendorById(id) {
+    return aiVendors.find((v) => v.id === id) || null;
+  }
+
+  function fillVendorSelect() {
+    if (!aiVendors.length) return;
+    vendorSelect.innerHTML = aiVendors.map((v) =>
+      `<option value="${App.esc(v.id)}"${v.id === aiSettings.vendor ? ' selected' : ''}>${App.esc(v.name)}</option>`
+    ).join('');
+    vendorSelect.disabled = false;
+  }
+
+  /** 实时校验接口地址；合法返回空串，否则返回原因 */
+  function endpointError(value) {
+    const s = (value || '').trim();
+    if (!s) return '请填写接口地址';
+    if (/\s/.test(s)) return '接口地址不能包含空格';
+    if (s.length > 300) return '接口地址过长（最多 300 字符）';
+    let u;
+    try {
+      u = new URL(s);
+    } catch (e) {
+      return '地址格式不合法，例如 https://api.openai.com/v1';
+    }
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return '仅支持 http:// 或 https://';
+    if (!u.hostname) return '地址缺少主机名';
+    return '';
+  }
+
+  /** 实时校验 API-KEY（按厂商正则）；未填写视为沿用已存密钥，返回空串 */
+  function apiKeyError(vendor, value) {
+    const s = (value || '').trim();
+    if (!s) return '';
+    if (/\s/.test(s)) return 'API-KEY 不能包含空格';
+    if (s.length > 200) return 'API-KEY 过长（最多 200 字符）';
+    if (vendor && vendor.keyPattern) {
+      try {
+        if (!new RegExp(vendor.keyPattern).test(s)) return vendor.keyHint || '格式与该厂商不匹配';
+      } catch (e) { /* 忽略无效正则，交由服务端兜底 */ }
+    }
+    return '';
+  }
+
+  function renderVendorMeta() {
+    const v = vendorById(vendorSelect.value);
+    if (!v) {
+      vendorHint.textContent = '请选择厂商';
+      endpointHint.textContent = '';
+      return;
+    }
+    const bits = [];
+    if (v.note) bits.push(v.note);
+    if (v.defaultModel) bits.push('默认模型 ' + v.defaultModel);
+    if (v.requiresCustomEndpoint) bits.push('需填写部署级接口地址');
+    vendorHint.textContent = bits.join(' · ') || ('已选择 ' + v.name);
+
+    const epErr = endpointError(endpointInput.value);
+    endpointHint.textContent = epErr ? '✗ ' + epErr
+      : (v.defaultEndpoint ? '默认地址：' + v.defaultEndpoint : '该厂商需自行填写接口地址（通常以 /v1 结尾）');
+    endpointHint.style.color = epErr ? 'var(--danger)' : '';
+
+    const keyErr = apiKeyError(v, apiKeyInput.value);
+    const kb = [];
+    if (keyErr) kb.push('✗ ' + keyErr);
+    else if (v.keyHint) kb.push(v.keyHint);
+    if (clearApiKey) kb.push('保存后将清除已存密钥');
+    else if (aiSettings.apiKeyConfigured && aiSettings.apiKeyMasked) {
+      kb.push('当前已保存 ' + aiSettings.apiKeyMasked + '（' + (aiSettings.apiKeySource === 'db' ? '页面配置' : '启动参数') + '）');
+    } else kb.push('当前未配置密钥');
+    const link = v.keyUrl ? ` · <a href="${App.esc(v.keyUrl)}" target="_blank" rel="noopener">获取 API-KEY</a>` : '';
+    apiKeyHint.innerHTML = App.esc(kb.join(' · ')) + link;
+    apiKeyHint.style.color = keyErr ? 'var(--danger)' : '';
+  }
+
+  /** 用服务端设置回填表单（不回显密钥，只显示掩码提示） */
+  function applySettings(s) {
+    aiSettings = s || {};
+    aiCurrent = aiSettings.model || '';
+    fillVendorSelect();
+    endpointInput.value = aiSettings.endpoint || '';
+    apiKeyInput.value = '';
+    clearApiKey = false;
+    apiKeyInput.placeholder = (aiSettings.apiKeyConfigured && aiSettings.apiKeyMasked)
+      ? `已保存 ${aiSettings.apiKeyMasked}，留空表示沿用`
+      : '粘贴该厂商的 API-KEY';
+    renderVendorMeta();
+  }
+
+  function currentVendor() {
+    return vendorById(vendorSelect.value);
+  }
+
+  async function loadModels(force) {
+    modelBadge.textContent = force ? '刷新中…' : '读取中…';
+    modelBadge.className = 'tag tag-neutral';
+    modelStatus.textContent = '';
+    const [setRes, vendorRes, listRes] = await Promise.all([
+      Api.Admin.aiSettings(),
+      Api.Admin.aiVendors(),
+      Api.Admin.aiModels({ refresh: !!force })
+    ]);
+    if (vendorRes.code === 0) aiVendors = vendorRes.data || [];
+    if (setRes.code !== 0) {
+      modelBadge.textContent = '读取失败';
+      modelSelect.innerHTML = `<option>${App.esc(setRes.message || '设置读取失败')}</option>`;
+      return;
+    }
+    const s = setRes.data;
+    applySettings(s);
+    modelBadge.textContent = s.aiUsable ? '已连接网关' : (s.aiEnabled ? '未配置密钥' : '未启用');
+    modelBadge.className = 'tag ' + (s.aiUsable ? 'tag-success' : 'tag-warn');
+
+    if (listRes.code !== 0) {
+      aiModels = [];
+      modelSelect.innerHTML = `<option value="${CUSTOM_OPT}" selected>自定义模型…</option>`;
+      modelSelect.disabled = false;
+      modelHint.textContent = (listRes.message || '模型清单读取失败') + '；可直接填写自定义模型 ID';
+      toggleCustomField();
+      return;
+    }
+    aiModels = listRes.data.models || [];
+    const staleNote = listRes.data.stale
+      ? `（网关暂不可用，展示缓存清单：${listRes.data.note || ''}）`
+      : '';
+    modelHint.textContent = `共 ${aiModels.length} 个可用模型 · 来源 ${s.endpoint || '未配置'}${staleNote}`;
+    fillModelSelect();
+  }
+
+  function setBtnBusy(btn, busy, busyText) {
+    if (busy) {
+      btn.dataset.label = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>' + busyText;
+    } else {
+      btn.disabled = false;
+      if (btn.dataset.label) btn.innerHTML = btn.dataset.label;
+      App.renderIcons(btn);
+    }
+  }
+
+  function buildPayload(extra) {
+    const model = modelSelect.value === CUSTOM_OPT ? customModelInput.value.trim() : modelSelect.value;
+    const payload = {
+      vendor: vendorSelect.value,
+      endpoint: endpointInput.value.trim(),
+      model: model || ''
+    };
+    const key = apiKeyInput.value.trim();
+    if (key) payload.apiKey = key;
+    if (clearApiKey) payload.clearApiKey = true;
+    return Object.assign(payload, extra || {});
+  }
+
+  async function testSettings() {
+    const vendor = currentVendor();
+    if (!vendor) { App.toast('请先选择 AI 厂商', 'error'); return; }
+    const epErr = endpointError(endpointInput.value);
+    if (epErr) { App.toast('接口地址不合法：' + epErr, 'error'); endpointInput.focus(); return; }
+    const keyErr = apiKeyError(vendor, apiKeyInput.value);
+    if (keyErr) { App.toast('API-KEY 格式不合法：' + keyErr, 'error'); apiKeyInput.focus(); return; }
+
+    const payload = { vendor: vendor.id, endpoint: endpointInput.value.trim() };
+    const key = apiKeyInput.value.trim();
+    if (key) payload.apiKey = key;
+
+    setBtnBusy(testBtn, true, '测试中');
+    modelStatus.textContent = '正在测试连通性…';
+    const res = await Api.Admin.testAiSettings(payload);
+    setBtnBusy(testBtn, false);
+    if (res.code !== 0) {
+      modelStatus.textContent = res.message || '连通性测试失败';
+      App.toast(res.message || '连通性测试失败', 'error');
+      return;
+    }
+    const t = res.data || {};
+    modelStatus.textContent = (t.ok ? '✓ ' : '✗ ') + (t.message || '')
+      + (t.latencyMs != null ? `（${t.latencyMs} ms）` : '');
+    App.toast(t.ok ? '连通性测试通过' : '连通性测试未通过', t.ok ? 'success' : 'error');
+  }
+
+  async function saveSettings(extra) {
+    const vendor = currentVendor();
+    if (!vendor) { App.toast('请先选择 AI 厂商', 'error'); return; }
+    const epErr = endpointError(endpointInput.value);
+    if (epErr) { App.toast('接口地址不合法：' + epErr, 'error'); endpointInput.focus(); return; }
+    const keyErr = apiKeyError(vendor, apiKeyInput.value);
+    if (keyErr) { App.toast('API-KEY 格式不合法：' + keyErr, 'error'); apiKeyInput.focus(); return; }
+    const payload = buildPayload(extra);
+    if (!payload.model) { App.toast('请选择模型或填写自定义模型 ID', 'error'); return; }
+
+    setBtnBusy(saveModelBtn, true, '保存中');
+    modelStatus.textContent = '保存前自动执行连通性测试…';
+    let res = await Api.Admin.saveAiSettings(payload);
+    setBtnBusy(saveModelBtn, false);
+    if (res.code !== 0 && String(res.message || '').indexOf('连通性测试') >= 0) {
+      modelStatus.textContent = res.message;
+      const go = await App.confirm({
+        title: '连通性测试未通过',
+        text: App.esc(res.message),
+        okText: '仍然保存',
+        danger: true
+      });
+      if (!go) return;
+      setBtnBusy(saveModelBtn, true, '保存中');
+      res = await Api.Admin.saveAiSettings(Object.assign({}, payload, { force: true }));
+      setBtnBusy(saveModelBtn, false);
+    }
+    if (res.code !== 0) {
+      modelStatus.textContent = res.message || '保存失败';
+      App.toast(res.message || '保存失败', 'error');
+      return;
+    }
+    const test = res.data && res.data.test;
+    applySettings(res.data);
+    fillModelSelect();
+    modelStatus.textContent = (test && test.ok)
+      ? `已生效：${aiCurrent}（连通性 ${test.latencyMs} ms）`
+      : `已生效：${aiCurrent}`;
+    const sysModel = $('#sysModel');
+    if (sysModel) sysModel.textContent = aiCurrent;
+    App.toast('AI 配置已保存并即时生效', 'success');
+    loadModels(false);
+  }
+
+  vendorSelect.addEventListener('change', () => {
+    const v = currentVendor();
+    if (!v) return;
+    if (v.defaultEndpoint) endpointInput.value = v.defaultEndpoint;
+    aiCurrent = v.defaultModel || '';
+    fillModelSelect();
+    renderVendorMeta();
+  });
+  endpointInput.addEventListener('input', () => renderVendorMeta());
+  apiKeyInput.addEventListener('input', () => {
+    if (apiKeyInput.value.trim()) clearApiKey = false;
+    renderVendorMeta();
+  });
+  resetEndpointBtn.addEventListener('click', () => {
+    const v = currentVendor();
+    endpointInput.value = v && v.defaultEndpoint ? v.defaultEndpoint : '';
+    renderVendorMeta();
+  });
+  clearKeyBtn.addEventListener('click', () => {
+    apiKeyInput.value = '';
+    clearApiKey = true;
+    apiKeyInput.placeholder = '保存后将清除已存密钥';
+    renderVendorMeta();
+  });
+  testBtn.addEventListener('click', testSettings);
+  saveModelBtn.addEventListener('click', () => saveSettings());
+  modelSelect.addEventListener('change', toggleCustomField);
+  modelSelect.addEventListener('change', () => {
+    if (modelSelect.value !== CUSTOM_OPT) aiCurrent = modelSelect.value;
+  });
+  customModelInput.addEventListener('input', () => { aiCurrent = customModelInput.value.trim(); });
+  refreshModelsBtn.addEventListener('click', () => loadModels(true));
+  resetModelBtn.addEventListener('click', () => {
+    const v = currentVendor();
+    if (!v) return;
+    if (v.defaultEndpoint) endpointInput.value = v.defaultEndpoint;
+    aiCurrent = v.defaultModel || '';
+    fillModelSelect();
+    customModelInput.value = aiCurrent;
+    modelSelect.value = aiModels.some((m) => m.id === aiCurrent) ? aiCurrent : CUSTOM_OPT;
+    toggleCustomField();
+    renderVendorMeta();
+  });
+
+  refreshBtn.addEventListener('click', () => load(true));
+  loadModels(false);
+  load(false);
+})();
+</script>
+</body>
+</html>

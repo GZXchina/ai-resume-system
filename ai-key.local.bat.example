@@ -1,0 +1,9 @@
+@echo off
+rem ============================================================
+rem 本地 AI 配置模板
+rem 使用方法：复制本文件为 ai-key.local.bat，填入自己的密钥
+rem ai-key.local.bat 已在 .gitignore 中忽略，不会被提交
+rem ============================================================
+set "AI_API_KEY=你的密钥"
+set "AI_ENDPOINT=https://api.deepseek.com/v1"
+set "AI_MODEL=deepseek-chat"

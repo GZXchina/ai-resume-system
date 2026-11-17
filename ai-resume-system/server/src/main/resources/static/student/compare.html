@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>简历对比 · 简历工坊</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+  .pick-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+  .pick-item { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease; }
+  .pick-item:hover { border-color: var(--border-strong); }
+  .pick-item.is-picked { border-color: var(--pine-500); box-shadow: 0 0 0 3px rgba(46, 107, 87, .08); }
+  .pick-item input { margin-top: 3px; accent-color: var(--pine-500); }
+  .pick-main { min-width: 0; }
+  .compare-row-best { background: #F6FBF8; }
+</style>
+</head>
+<body data-page="compare">
+<aside class="app-nav">
+  <div class="brand">
+    <div class="brand-mark">简</div>
+    <div class="brand-text"><strong>简历工坊</strong><span>AI RESUME STUDIO</span></div>
+  </div>
+  <div class="nav-group-label">学生工作区</div>
+  <nav class="nav-list" aria-label="学生端导航">
+    <a class="nav-item" data-nav="dashboard" href="dashboard.html"><span class="nav-ic" data-icon="layout-dashboard"></span><span>工作台</span></a>
+    <a class="nav-item" data-nav="resumes" href="resumes.html"><span class="nav-ic" data-icon="file-text"></span><span>我的简历</span></a>
+    <a class="nav-item" data-nav="jobs" href="jobs.html"><span class="nav-ic" data-icon="briefcase"></span><span>岗位管理</span></a>
+    <a class="nav-item" data-nav="analysis" href="analysis.html"><span class="nav-ic" data-icon="sparkles"></span><span>简历分析</span></a>
+    <a class="nav-item" data-nav="records" href="records.html"><span class="nav-ic" data-icon="history"></span><span>分析记录</span></a>
+    <a class="nav-item" data-nav="versions" href="versions.html"><span class="nav-ic" data-icon="git-compare"></span><span>版本管理</span></a>
+    <a class="nav-item" data-nav="compare" href="compare.html"><span class="nav-ic" data-icon="target"></span><span>简历对比</span></a>
+    <a class="nav-item" data-nav="api-console" href="api-console.html"><span class="nav-ic" data-icon="server"></span><span>API 控制台</span></a>
+  </nav>
+  <div class="nav-foot">
+    <div class="nav-tip"><span data-icon="shield"></span><span>数据保存在本机服务与数据库</span></div>
+    <div class="user-card">
+      <div class="avatar" id="navAvatar">林</div>
+      <div class="user-meta"><strong id="navUserName">林知远</strong><span>学生账号</span></div>
+      <button class="icon-btn" id="logoutBtn" type="button" title="退出登录" aria-label="退出登录"><span data-icon="log-out"></span></button>
+    </div>
+  </div>
+</aside>
+<main class="app-content">
+  <div class="content-wrap">
+    <div class="breadcrumb reveal">
+      <span>学生工作区</span>
+      <span data-icon="chevron-right"></span>
+      <span>简历对比</span>
+    </div>
+
+    <div class="page-head reveal" style="--d:1">
+      <div>
+        <h1 class="page-title">简历对比</h1>
+        <p class="page-sub">针对同一个岗位横向比较 2~3 份简历，判断哪一版更值得投递。</p>
+      </div>
+    </div>
+
+    <div class="card reveal" style="--d:2">
+      <div class="card-head">
+        <div>
+          <div class="card-title">1. 选择目标岗位</div>
+          <div class="card-sub">匹配度按该岗位 JD 关键词在简历中的覆盖率计算</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="field" style="max-width:420px">
+          <label class="field-label" for="jobSelect">岗位</label>
+          <select class="select" id="jobSelect" disabled>
+            <option value="">加载中…</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="card reveal mt-16" style="--d:3">
+      <div class="card-head">
+        <div>
+          <div class="card-title">2. 选择 2~3 份简历</div>
+          <div class="card-sub">仅显示本人简历；勾选超过 3 份会自动拦截</div>
+        </div>
+        <span class="tag tag-neutral" id="pickCount">已选 0/3</span>
+      </div>
+      <div class="card-body">
+        <div class="pick-list" id="resumePicker">
+          <div class="row"><span class="spinner"></span><span class="small faint">正在加载简历…</span></div>
+        </div>
+        <div class="row wrap mt-16">
+          <button class="btn btn-primary" type="button" id="compareBtn" disabled><span data-icon="git-compare"></span>开始对比</button>
+          <span class="small faint">匹配度用于横向参考，正式结论以「简历分析」任务为准</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="compareResult" class="mt-24"></div>
+  </div>
+</main>
+<script src="../api.js"></script>
+<script src="../app.js"></script>
+<script>
+  App.init({ role: 'student', page: 'compare' });
+  (function () {
+    const me = App.Auth.current();
+    if (!me || me.role !== 'student') return;
+
+    const $ = App.qs;
+    const jobSelect = $('#jobSelect');
+    const resumePicker = $('#resumePicker');
+    const pickCount = $('#pickCount');
+    const compareBtn = $('#compareBtn');
+    const resultEl = $('#compareResult');
+
+    const state = { jobId: '', selected: new Set(), comparing: false, resumes: [], jobs: [] };
+
+    const shortTarget = (r) => (r.target || '未填写求职意向');
+
+    function updateControls() {
+      pickCount.textContent = `已选 ${state.selected.size}/3`;
+      compareBtn.disabled = state.comparing || !state.jobId || state.selected.size < 2;
+    }
+
+    function renderPicker() {
+      if (!state.resumes.length) {
+        resumePicker.innerHTML = `
+          <div class="empty" style="grid-column:1/-1">
+            <div class="empty-icon" data-icon="file-text"></div>
+            <div class="empty-title">还没有简历</div>
+            <div class="empty-text">先创建至少两份简历，才能进行横向对比</div>
+            <a class="btn btn-primary" href="resume-edit.html"><span data-icon="file-plus"></span>新建简历</a>
+          </div>`;
+        App.renderIcons(resumePicker);
+        updateControls();
+        return;
+      }
+      resumePicker.innerHTML = state.resumes.map((r) => `
+        <label class="pick-item ${state.selected.has(String(r.id)) ? 'is-picked' : ''}" data-id="${r.id}">
+          <input type="checkbox" class="pick-box" value="${r.id}" ${state.selected.has(String(r.id)) ? 'checked' : ''}>
+          <div class="pick-main">
+            <div class="strong truncate">${App.esc(r.name)}</div>
+            <div class="small faint mt-8">${App.esc(shortTarget(r))} · v${r.version || 1} · 完整度 ${r.completeness || 0} · ${r.versionCount || 0} 个版本</div>
+          </div>
+        </label>`).join('');
+      App.renderIcons(resumePicker);
+      updateControls();
+    }
+
+    function renderJobs() {
+      if (!state.jobs.length) {
+        jobSelect.innerHTML = '<option value="">暂无岗位</option>';
+        jobSelect.disabled = true;
+        return;
+      }
+      jobSelect.innerHTML = state.jobs
+        .map((j) => `<option value="${j.id}">${App.esc(j.title)}${j.company ? ' · ' + App.esc(j.company) : ''}</option>`)
+        .join('');
+      jobSelect.disabled = false;
+      jobSelect.value = state.jobId;
+      updateControls();
+    }
+
+    function clearResult() {
+      resultEl.innerHTML = '';
+    }
+
+    function scoreCell(item, max) {
+      const pct = Math.max(0, Math.min(100, Number(item.matchScore) || 0));
+      return `<div class="row" style="gap:8px">
+          <span class="num strong" style="font-size:18px">${item.matchScore}</span>
+          <div class="meter" style="width:${max}px"><i style="width:${pct}%"></i></div>
+        </div>
+        <div class="cell-sub">覆盖 ${item.matched.length}/${item.keywordCount} 个关键词</div>`;
+    }
+
+    function renderResult(data) {
+      const items = data.items || [];
+      const job = data.job || {};
+      const best = items.find((x) => x.bestMatch);
+      const mostComplete = items.find((x) => x.bestCompleteness);
+      const rows = items.map((item) => {
+        const missing = item.missing || [];
+        return `<tr class="${item.bestMatch ? 'compare-row-best' : ''}">
+          <td>
+            <div class="cell-main">${App.esc(item.name)} ${item.bestMatch ? '<span class="tag tag-success">最匹配</span>' : ''}${item.bestCompleteness && !item.bestMatch ? '<span class="tag tag-info">最完整</span>' : ''}</div>
+            <div class="cell-sub">${App.esc(item.personName)} · ${App.esc(item.target)} · v${item.version}</div>
+          </td>
+          <td>${scoreCell(item, 84)}</td>
+          <td>
+            <div class="num strong">${item.completeness}%</div>
+            <div class="cell-sub">${item.skillCount} 项技能 / ${item.projectCount} 段项目</div>
+          </td>
+          <td>${missing.length
+            ? `<div class="chips">${missing.slice(0, 4).map((k) => `<span class="chip chip--missing">${App.esc(k)}</span>`).join('')}${missing.length > 4 ? `<span class="chip">+${missing.length - 4}</span>` : ''}</div>`
+            : '<span class="tag tag-success">关键词全覆盖</span>'}</td>
+        </tr>`;
+      }).join('');
+
+      resultEl.innerHTML = `
+        <div class="card reveal">
+          <div class="card-head">
+            <div>
+              <div class="card-title">对比结果</div>
+              <div class="card-sub">${App.esc(job.title || '')}${job.company ? ' · ' + App.esc(job.company) : ''} · JD 关键词 ${job.keywordCount || 0} 个（${job.keywordSource === 'jd' ? '从 JD 提取' : '人工填写'}）</div>
+            </div>
+            <span class="tag tag-info">${items.length} 份简历</span>
+          </div>
+          <div class="card-body">
+            <div class="banner banner--info">
+              <span data-icon="target"></span>
+              <div>匹配度最高：<strong>${App.esc(best ? best.name : '—')}</strong>（${best ? best.matchScore : '—'} 分）；
+                完整度最高：<strong>${App.esc(mostComplete ? mostComplete.name : '—')}</strong>（${mostComplete ? mostComplete.completeness : '—'}%）。
+                两项指标视角不同，建议结合岗位要求综合判断。</div>
+            </div>
+            <div class="tbl-wrap mt-16">
+              <table class="tbl">
+                <thead><tr><th>简历</th><th>岗位匹配度</th><th>简历完整度</th><th>缺失关键词</th></tr></thead>
+                <tbody>${rows}</tbody>
+              </table>
+            </div>
+            <div class="small faint mt-16">${(data.notes || []).map((n) => App.esc(n)).join('　·　')}</div>
+          </div>
+        </div>`;
+      App.renderIcons(resultEl);
+    }
+
+    async function runCompare() {
+      if (state.comparing || !state.jobId || state.selected.size < 2) return;
+      state.comparing = true;
+      compareBtn.disabled = true;
+      compareBtn.innerHTML = '<span class="spinner spinner--light"></span>对比中';
+      resultEl.innerHTML = `
+        <div class="card"><div class="card-body row"><span class="spinner"></span><span class="small faint">正在计算匹配度与差异…</span></div></div>`;
+
+      const res = await Api.Job.compare({ jobId: state.jobId, resumeIds: Array.from(state.selected) });
+      state.comparing = false;
+      compareBtn.innerHTML = '<span data-icon="git-compare"></span>开始对比';
+      App.renderIcons(compareBtn);
+      updateControls();
+
+      if (res.code !== 0) {
+        resultEl.innerHTML = `
+          <div class="card"><div class="card-body">
+            <div class="empty">
+              <div class="empty-icon" data-icon="alert-triangle"></div>
+              <div class="empty-title">对比失败</div>
+              <div class="empty-text">${App.esc(res.message)}</div>
+            </div>
+          </div></div>`;
+        App.renderIcons(resultEl);
+        App.toast(res.message, 'error');
+        return;
+      }
+      renderResult(res.data);
+    }
+
+    resumePicker.addEventListener('change', (e) => {
+      const box = e.target.closest('.pick-box');
+      if (!box) return;
+      const id = box.value;
+      if (box.checked) {
+        if (state.selected.size >= 3) {
+          box.checked = false;
+          App.toast('最多同时对比 3 份简历', 'error');
+          return;
+        }
+        state.selected.add(id);
+      } else {
+        state.selected.delete(id);
+      }
+      const card = box.closest('.pick-item');
+      if (card) card.classList.toggle('is-picked', box.checked);
+      updateControls();
+      clearResult();
+    });
+
+    jobSelect.addEventListener('change', () => {
+      state.jobId = jobSelect.value;
+      updateControls();
+      clearResult();
+    });
+
+    compareBtn.addEventListener('click', runCompare);
+
+    (async function boot() {
+      const [jr, rr] = await Promise.all([Api.Job.list(), Api.Resume.list()]);
+      if (jr.code !== 0) {
+        jobSelect.innerHTML = '<option value="">岗位加载失败</option>';
+        App.toast(jr.message, 'error');
+      } else {
+        state.jobs = jr.data || [];
+        const jobParam = App.param('job');
+        state.jobId = jobParam && state.jobs.some((j) => String(j.id) === jobParam)
+          ? jobParam : (state.jobs[0] ? String(state.jobs[0].id) : '');
+        renderJobs();
+      }
+
+      if (rr.code !== 0) {
+        resumePicker.innerHTML = `<div class="small faint">简历加载失败：${App.esc(rr.message)}</div>`;
+        App.toast(rr.message, 'error');
+        return;
+      }
+      state.resumes = rr.data || [];
+      const paramIds = String(App.param('resumeIds') || '').split(',').filter(Boolean);
+      const valid = paramIds.filter((id) => state.resumes.some((r) => String(r.id) === id));
+      const preset = valid.length >= 2 ? valid : state.resumes.slice(0, Math.min(2, state.resumes.length)).map((r) => String(r.id));
+      preset.slice(0, 3).forEach((id) => state.selected.add(id));
+      renderPicker();
+    })();
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>用户管理 · 简历工坊</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+  .cell-user { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .cell-user .avatar { flex: 0 0 auto; }
+</style>
+</head>
+<body data-page="users">
+<aside class="app-nav app-nav--admin">
+  <div class="brand">
+    <div class="brand-mark">简</div>
+    <div class="brand-text"><strong>简历工坊</strong><span>ADMIN CONSOLE</span></div>
+  </div>
+  <div class="nav-group-label">管理控制台</div>
+  <nav class="nav-list" aria-label="管理端导航">
+    <a class="nav-item" data-nav="overview" href="dashboard.html"><span class="nav-ic" data-icon="gauge"></span><span>后台概览</span></a>
+    <a class="nav-item" data-nav="users" href="users.html"><span class="nav-ic" data-icon="users"></span><span>用户管理</span></a>
+    <a class="nav-item" data-nav="tasks" href="tasks.html"><span class="nav-ic" data-icon="activity"></span><span>任务监管</span></a>
+  </nav>
+  <div class="nav-foot">
+    <div class="nav-tip"><span data-icon="shield"></span><span>只读监管 · 不展示简历正文</span></div>
+    <div class="user-card">
+      <div class="avatar avatar--admin" id="navAvatar">周</div>
+      <div class="user-meta"><strong id="navUserName">周明</strong><span>管理员</span></div>
+      <button class="icon-btn" id="logoutBtn" type="button" title="退出登录" aria-label="退出登录"><span data-icon="log-out"></span></button>
+    </div>
+  </div>
+</aside>
+<main class="app-content">
+  <div class="content-wrap">
+    <div class="page-head">
+      <div>
+        <div class="breadcrumb"><span>管理控制台</span><span data-icon="chevron-right"></span><span>用户管理</span></div>
+        <h1 class="page-title">用户<span class="accent">管理</span></h1>
+        <p class="page-sub">维护学生账号状态；禁用后该账号无法登录与发起分析，历史数据保留</p>
+      </div>
+    </div>
+
+    <div class="banner banner--info reveal" style="margin-bottom:18px">
+      <span data-icon="shield"></span>
+      <div class="spacer">管理员不能查看或编辑学生简历内容，仅可维护账号状态。</div>
+      <a class="link-btn" href="tasks.html">查看任务监管 <span data-icon="arrow-right"></span></a>
+    </div>
+
+    <div class="toolbar">
+      <div class="search-box">
+        <span data-icon="search"></span>
+        <input class="input" id="userSearch" type="search" placeholder="搜索账号或昵称" autocomplete="off">
+      </div>
+      <span class="small muted" id="usersMeta">正在加载…</span>
+    </div>
+
+    <section class="card reveal">
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th>学生</th>
+              <th>状态</th>
+              <th>注册时间</th>
+              <th>简历数</th>
+              <th>分析次数</th>
+              <th style="text-align:right">操作</th>
+            </tr>
+          </thead>
+          <tbody id="usersTbody"></tbody>
+        </table>
+      </div>
+      <div class="card-foot row-between wrap">
+        <span class="small faint" id="pagerInfo">第 1 / 1 页 · 共 0 条</span>
+        <div class="row">
+          <button class="btn btn-sm btn-outline" id="prevBtn" type="button">上一页</button>
+          <button class="btn btn-sm btn-outline" id="nextBtn" type="button">下一页</button>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+<script src="../mock.js"></script>
+<script src="../store.js"></script>
+<script src="../api.js"></script>
+<script src="../app.js"></script>
+<script>
+App.init({ role:'admin', page:'users' });
+
+(function () {
+  const $ = App.qs;
+  const tbody = $('#usersTbody');
+  const meta = $('#usersMeta');
+  const search = $('#userSearch');
+  const prevBtn = $('#prevBtn');
+  const nextBtn = $('#nextBtn');
+  const pagerInfo = $('#pagerInfo');
+
+  const PAGE_SIZE = 8;
+  const state = { q: '', page: 1, rows: [], loading: false };
+  let seq = 0;
+  let timer = null;
+
+  function emptyBlock(icon, title, text) {
+    return `<div class="empty">
+      <div class="empty-icon" data-icon="${icon}"></div>
+      <div class="empty-title">${title}</div>
+      <div class="empty-text">${text}</div>
+    </div>`;
+  }
+
+  function errorBlock(message) {
+    return `<div class="empty">
+      <div class="empty-icon" data-icon="alert-triangle"></div>
+      <div class="empty-title">数据加载失败</div>
+      <div class="empty-text">${App.esc(message || '请稍后重试')}</div>
+      <button class="btn btn-outline btn-sm" type="button" data-retry>重新加载</button>
+    </div>`;
+  }
+
+  function bindRetry(container, fn) {
+    const btn = container.querySelector('[data-retry]');
+    if (btn) btn.addEventListener('click', fn);
+  }
+
+  function skTable() {
+    const rows = Array.from({ length: 5 }, () => `<tr>
+      <td><div class="row"><div class="sk" style="width:28px;height:28px;border-radius:50%;flex:0 0 auto"></div>
+        <div style="flex:1;min-width:0"><div class="sk sk-line" style="width:78px;margin-bottom:6px"></div>
+        <div class="sk sk-line" style="width:112px;margin-bottom:0"></div></div></div></td>
+      <td><div class="sk" style="height:18px;width:58px;border-radius:999px"></div></td>
+      <td><div class="sk sk-line" style="width:78px;margin-bottom:0"></div></td>
+      <td><div class="sk sk-line" style="width:34px;margin-bottom:0"></div></td>
+      <td><div class="sk sk-line" style="width:34px;margin-bottom:0"></div></td>
+      <td><div class="sk sk-line" style="width:64px;margin-bottom:0;margin-left:auto"></div></td>
+    </tr>`);
+    tbody.innerHTML = rows.join('');
+  }
+
+  function statusTag(status) {
+    return status === 'active'
+      ? '<span class="tag tag-success"><span data-icon="check"></span>正常</span>'
+      : '<span class="tag tag-danger"><span data-icon="x"></span>已禁用</span>';
+  }
+
+  function renderMeta() {
+    const active = state.rows.filter((u) => u.status === 'active').length;
+    meta.innerHTML = `共 <strong>${state.rows.length}</strong> 个学生账号 · 启用 <strong>${active}</strong>`;
+  }
+
+  function renderPager() {
+    const pages = Math.max(1, Math.ceil(state.rows.length / PAGE_SIZE));
+    if (state.page > pages) state.page = pages;
+    pagerInfo.textContent = `第 ${state.page} / ${pages} 页 · 共 ${state.rows.length} 条`;
+    prevBtn.disabled = state.loading || state.page <= 1;
+    nextBtn.disabled = state.loading || state.page >= pages;
+  }
+
+  function renderTable() {
+    if (!state.rows.length) {
+      tbody.innerHTML = `<tr><td colspan="6">${emptyBlock('users', '没有匹配的学生账号', '换个账号或昵称关键词试试')}</td></tr>`;
+      App.renderIcons(tbody);
+      return;
+    }
+    const start = (state.page - 1) * PAGE_SIZE;
+    const list = state.rows.slice(start, start + PAGE_SIZE);
+    tbody.innerHTML = list.map((u) => {
+      const action = u.status === 'active'
+        ? `<button class="btn btn-sm btn-outline" type="button" data-act="toggle" data-id="${App.esc(u.id)}"><span data-icon="x"></span>禁用</button>`
+        : `<button class="btn btn-sm btn-primary" type="button" data-act="toggle" data-id="${App.esc(u.id)}"><span data-icon="check"></span>启用</button>`;
+      return `<tr>
+        <td><div class="cell-user">
+          <div class="avatar avatar-sm">${App.esc(App.initials(u.name))}</div>
+          <div style="min-width:0">
+            <div class="cell-main">${App.esc(u.name)}</div>
+            <div class="cell-sub mono">${App.esc(u.account)}</div>
+          </div>
+        </div></td>
+        <td>${statusTag(u.status)}</td>
+        <td class="num">${App.esc(App.fmtDate(u.createdAt))}</td>
+        <td class="num">${u.resumes}</td>
+        <td class="num">${u.analyses}</td>
+        <td><div class="actions">${action}</div></td>
+      </tr>`;
+    }).join('');
+    App.renderIcons(tbody);
+  }
+
+  async function load() {
+    const my = ++seq;
+    state.loading = true;
+    skTable();
+    meta.textContent = '正在加载…';
+    pagerInfo.textContent = '加载中…';
+    prevBtn.disabled = true;
+    nextBtn.disabled = true;
+
+    const res = await Api.Admin.users({ q: state.q });
+    if (my !== seq) return;
+
+    state.loading = false;
+
+    if (res.code !== 0) {
+      App.toast(res.message || '用户列表加载失败', 'error');
+      state.rows = [];
+      meta.textContent = '加载失败';
+      tbody.innerHTML = `<tr><td colspan="6">${errorBlock(res.message)}</td></tr>`;
+      App.renderIcons(tbody);
+      bindRetry(tbody, () => load());
+      renderPager();
+      return;
+    }
+
+    state.rows = res.data;
+    renderMeta();
+    renderPager();
+    renderTable();
+  }
+
+  tbody.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-act="toggle"]');
+    if (!btn) return;
+    const id = btn.dataset.id;
+    const user = state.rows.find((u) => u.id === id);
+    if (!user) return;
+
+    const disabling = user.status === 'active';
+    const ok = await App.confirm({
+      title: disabling ? '禁用账号' : '启用账号',
+      text: disabling
+        ? `确认禁用「${App.esc(user.name)}（${App.esc(user.account)}）」？禁用后该账号无法登录与发起分析，历史数据仍保留。`
+        : `确认启用「${App.esc(user.name)}（${App.esc(user.account)}）」？启用后该账号可正常登录并发起分析。`,
+      okText: disabling ? '确认禁用' : '确认启用',
+      danger: disabling
+    });
+    if (!ok) return;
+
+    const old = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
+
+    const res = await Api.Admin.toggleUser(id);
+    if (res.code !== 0) {
+      btn.disabled = false;
+      btn.innerHTML = old;
+      App.renderIcons(btn);
+      App.toast(res.message, 'error');
+      return;
+    }
+
+    App.toast(disabling ? '账号已禁用' : '账号已启用', 'success');
+    await load();
+  });
+
+  search.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      state.q = search.value.trim();
+      state.page = 1;
+      load();
+    }, 250);
+  });
+
+  prevBtn.addEventListener('click', () => {
+    if (state.loading || state.page <= 1) return;
+    state.page -= 1;
+    renderPager();
+    renderTable();
+  });
+
+  nextBtn.addEventListener('click', () => {
+    const pages = Math.max(1, Math.ceil(state.rows.length / PAGE_SIZE));
+    if (state.loading || state.page >= pages) return;
+    state.page += 1;
+    renderPager();
+    renderTable();
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>

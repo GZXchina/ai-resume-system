@@ -1,0 +1,44 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: ai-resume-server
+  datasource:
+    url: jdbc:mysql://localhost:3306/ai_resume?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.jdbc.Driver
+  web:
+    resources:
+      cache:
+        cachecontrol:
+          max-age: 0
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+    multipart:
+      # 简历文件导入（FR-RESUME-04）：业务层限制 5MB，容器层留 1MB 余量
+      max-file-size: 6MB
+      max-request-size: 8MB
+
+# 登录凭证：v1.7 起持久化到 auth_token 表，服务重启后仍有效（滑动过期，单位小时）
+auth:
+  token-ttl-hours: ${AUTH_TOKEN_TTL_HOURS:12}
+
+# AI 服务配置：默认关闭（enabled=false）时自动走规则模式降级（BR-ANALYSIS-04）。
+# 接入真实大模型时：enabled=true，填写 endpoint/api-key/model（OpenAI 兼容接口，如 DeepSeek）。
+# 密钥只允许通过环境变量 AI_API_KEY 注入，不写入代码仓库。
+ai:
+  enabled: ${AI_ENABLED:false}
+  endpoint: ${AI_ENDPOINT:https://api.deepseek.com/v1}
+  api-key: ${AI_API_KEY:}
+  model: ${AI_MODEL:deepseek-chat}
+  timeout-seconds: 30
+  # 扫描件 OCR（v1.7）：需网关支持多模态图片输入，默认使用 DeepSeek-V4.1-Flash
+  ocr-enabled: ${AI_OCR_ENABLED:true}
+  ocr-model: ${AI_OCR_MODEL:global:deepseek-v4.1-flash}
+  ocr-max-pages: ${AI_OCR_MAX_PAGES:3}
+  ocr-dpi: ${AI_OCR_DPI:150}

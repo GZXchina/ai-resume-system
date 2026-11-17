@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>任务监管 · 简历工坊</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+  .tbl--wide { min-width: 1080px; }
+</style>
+</head>
+<body data-page="tasks">
+<aside class="app-nav app-nav--admin">
+  <div class="brand">
+    <div class="brand-mark">简</div>
+    <div class="brand-text"><strong>简历工坊</strong><span>ADMIN CONSOLE</span></div>
+  </div>
+  <div class="nav-group-label">管理控制台</div>
+  <nav class="nav-list" aria-label="管理端导航">
+    <a class="nav-item" data-nav="overview" href="dashboard.html"><span class="nav-ic" data-icon="gauge"></span><span>后台概览</span></a>
+    <a class="nav-item" data-nav="users" href="users.html"><span class="nav-ic" data-icon="users"></span><span>用户管理</span></a>
+    <a class="nav-item" data-nav="tasks" href="tasks.html"><span class="nav-ic" data-icon="activity"></span><span>任务监管</span></a>
+  </nav>
+  <div class="nav-foot">
+    <div class="nav-tip"><span data-icon="shield"></span><span>只读监管 · 不展示简历正文</span></div>
+    <div class="user-card">
+      <div class="avatar avatar--admin" id="navAvatar">周</div>
+      <div class="user-meta"><strong id="navUserName">周明</strong><span>管理员</span></div>
+      <button class="icon-btn" id="logoutBtn" type="button" title="退出登录" aria-label="退出登录"><span data-icon="log-out"></span></button>
+    </div>
+  </div>
+</aside>
+<main class="app-content">
+  <div class="content-wrap">
+    <div class="page-head">
+      <div>
+        <div class="breadcrumb"><span>管理控制台</span><span data-icon="chevron-right"></span><span>任务监管</span></div>
+        <h1 class="page-title">任务<span class="accent">监管</span></h1>
+        <p class="page-sub">只读查看分析任务状态与分析方式，不展示简历内容</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-outline" id="refreshBtn" type="button"><span data-icon="refresh-cw"></span>刷新</button>
+      </div>
+    </div>
+
+    <div class="banner banner--warn reveal" style="margin-bottom:18px">
+      <span data-icon="alert-triangle"></span>
+      <div><strong>隐私限制：</strong>本页仅展示任务元信息，管理员不可查看简历正文与建议全文（需求 BR-ADMIN-01）。</div>
+    </div>
+
+    <div class="toolbar">
+      <div class="segmented" id="taskSeg" role="group" aria-label="任务状态筛选">
+        <button type="button" class="active" data-status="">全部</button>
+        <button type="button" data-status="success">成功</button>
+        <button type="button" data-status="failed">失败</button>
+        <button type="button" data-status="analyzing">分析中</button>
+      </div>
+      <div class="search-box" style="margin-left:auto">
+        <span data-icon="search"></span>
+        <input class="input" id="taskSearch" type="search" placeholder="搜索简历 / 岗位 / 学生" autocomplete="off">
+      </div>
+    </div>
+
+    <section class="card reveal">
+      <div class="tbl-wrap">
+        <table class="tbl tbl--wide">
+          <thead>
+            <tr>
+              <th>任务号</th>
+              <th>学生</th>
+              <th>简历名称</th>
+              <th>岗位</th>
+              <th>状态</th>
+              <th>方式</th>
+              <th>得分</th>
+              <th>耗时</th>
+              <th>创建时间</th>
+              <th style="text-align:right">操作</th>
+            </tr>
+          </thead>
+          <tbody id="tasksTbody"></tbody>
+        </table>
+      </div>
+      <div class="card-foot row-between wrap">
+        <span class="small faint" id="pagerInfo">第 1 / 1 页 · 共 0 条</span>
+        <div class="row">
+          <button class="btn btn-sm btn-outline" id="prevBtn" type="button">上一页</button>
+          <button class="btn btn-sm btn-outline" id="nextBtn" type="button">下一页</button>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+<script src="../mock.js"></script>
+<script src="../store.js"></script>
+<script src="../api.js"></script>
+<script src="../app.js"></script>
+<script>
+App.init({ role:'admin', page:'tasks' });
+
+(function () {
+  const $ = App.qs;
+  const tbody = $('#tasksTbody');
+  const search = $('#taskSearch');
+  const seg = $('#taskSeg');
+  const prevBtn = $('#prevBtn');
+  const nextBtn = $('#nextBtn');
+  const pagerInfo = $('#pagerInfo');
+  const refreshBtn = $('#refreshBtn');
+
+  const PAGE_SIZE = 10;
+  const state = { status: '', q: '', page: 1, rows: [], all: [], loading: false };
+  let seq = 0;
+
+  function emptyBlock(icon, title, text) {
+    return `<div class="empty">
+      <div class="empty-icon" data-icon="${icon}"></div>
+      <div class="empty-title">${title}</div>
+      <div class="empty-text">${text}</div>
+    </div>`;
+  }
+
+  function errorBlock(message) {
+    return `<div class="empty">
+      <div class="empty-icon" data-icon="alert-triangle"></div>
+      <div class="empty-title">数据加载失败</div>
+      <div class="empty-text">${App.esc(message || '请稍后重试')}</div>
+      <button class="btn btn-outline btn-sm" type="button" data-retry>重新加载</button>
+    </div>`;
+  }
+
+  function bindRetry(container, fn) {
+    const btn = container.querySelector('[data-retry]');
+    if (btn) btn.addEventListener('click', fn);
+  }
+
+  function skTable() {
+    const cells = '<td><div class="sk sk-line" style="width:74%;margin-bottom:0"></div></td>';
+    tbody.innerHTML = Array.from({ length: 6 }, () => `<tr>${cells.repeat(10)}</tr>`).join('');
+  }
+
+  function durationText(t) {
+    if (t.duration) return `${t.duration} 秒`;
+    return t.status === 'analyzing' ? '进行中' : '—';
+  }
+
+  function renderPager() {
+    const pages = Math.max(1, Math.ceil(state.rows.length / PAGE_SIZE));
+    if (state.page > pages) state.page = pages;
+    pagerInfo.textContent = `第 ${state.page} / ${pages} 页 · 共 ${state.rows.length} 条`;
+    prevBtn.disabled = state.loading || state.page <= 1;
+    nextBtn.disabled = state.loading || state.page >= pages;
+  }
+
+  function renderTable() {
+    if (!state.rows.length) {
+      tbody.innerHTML = `<tr><td colspan="10">${emptyBlock('activity', '没有符合条件的分析任务', '调整状态筛选或更换搜索关键词试试')}</td></tr>`;
+      App.renderIcons(tbody);
+      return;
+    }
+    const start = (state.page - 1) * PAGE_SIZE;
+    const list = state.rows.slice(start, start + PAGE_SIZE);
+    tbody.innerHTML = list.map((t) => `<tr>
+      <td><span class="mono">${App.esc(t.id.slice(-8))}</span></td>
+      <td><div class="cell-main">${App.esc(t.userName)}</div><div class="cell-sub mono">${App.esc(t.userId)}</div></td>
+      <td><div class="truncate" style="max-width:170px" title="${App.esc(t.resumeName)}">${App.esc(t.resumeName)}</div></td>
+      <td><div class="truncate" style="max-width:210px" title="${App.esc(t.jobTitle)}">${App.esc(t.jobTitle)}</div></td>
+      <td>${App.statusTag(t.status)}</td>
+      <td>${App.modeTag(t.mode)}</td>
+      <td class="num">${t.score == null ? '<span class="faint">—</span>' : t.score}</td>
+      <td class="num">${durationText(t)}</td>
+      <td class="small faint" title="${App.esc(t.createdAt)}">${App.fmtShort(t.createdAt)}</td>
+      <td><div class="actions"><button class="btn btn-sm btn-outline" type="button" data-act="detail" data-id="${App.esc(t.id)}"><span data-icon="eye"></span>详情</button></div></td>
+    </tr>`).join('');
+    App.renderIcons(tbody);
+  }
+
+  function renderAll() {
+    renderPager();
+    renderTable();
+  }
+
+  function applyFilter(resetPage) {
+    const key = state.q.trim().toLowerCase();
+    state.rows = !key ? state.all.slice() : state.all.filter((t) => {
+      return (t.resumeName || '').toLowerCase().includes(key)
+        || (t.jobTitle || '').toLowerCase().includes(key)
+        || (t.userName || '').toLowerCase().includes(key)
+        || (t.id || '').toLowerCase().includes(key)
+        || (t.userId || '').toLowerCase().includes(key);
+    });
+    if (resetPage) state.page = 1;
+    renderAll();
+  }
+
+  async function load(showToast) {
+    const my = ++seq;
+    state.loading = true;
+    refreshBtn.disabled = true;
+    refreshBtn.innerHTML = '<span class="spinner"></span>刷新中';
+    skTable();
+    pagerInfo.textContent = '加载中…';
+    prevBtn.disabled = true;
+    nextBtn.disabled = true;
+
+    const res = await Api.Admin.tasks({ status: state.status });
+    if (my !== seq) return;
+
+    state.loading = false;
+    refreshBtn.disabled = false;
+    refreshBtn.innerHTML = '<span data-icon="refresh-cw"></span>刷新';
+    App.renderIcons(refreshBtn);
+
+    if (res.code !== 0) {
+      App.toast(res.message || '任务列表加载失败', 'error');
+      state.all = [];
+      state.rows = [];
+      tbody.innerHTML = `<tr><td colspan="10">${errorBlock(res.message)}</td></tr>`;
+      App.renderIcons(tbody);
+      bindRetry(tbody, () => load(false));
+      renderPager();
+      return;
+    }
+
+    state.all = res.data;
+    applyFilter(true);
+    if (showToast) App.toast('任务列表已刷新', 'success');
+  }
+
+  function openDetail(id) {
+    const t = state.all.find((x) => x.id === id) || state.rows.find((x) => x.id === id);
+    if (!t) return;
+
+    const rows = [
+      ['任务号', `<span class="mono">${App.esc(t.id)}</span>`],
+      ['学生', App.esc(t.userName)],
+      ['简历名称', App.esc(t.resumeName)],
+      ['岗位', App.esc(t.jobTitle)],
+      ['状态', App.statusTag(t.status)],
+      ['分析方式', App.modeTag(t.mode)],
+      ['匹配得分', t.score == null ? '—' : `${t.score} 分`],
+      ['耗时', durationText(t)],
+      ['创建时间', App.esc(t.createdAt)]
+    ];
+    if (t.status === 'failed' && t.reason) rows.push(['失败原因', App.esc(t.reason)]);
+
+    const m = App.modal({
+      title: '任务详情',
+      sub: '只读查看 · 不展示简历内容',
+      body: `<div class="kv">${rows.map(([k, v]) => `<div class="kv-row"><span class="kv-key">${k}</span><span class="kv-val">${v}</span></div>`).join('')}</div>
+        <div class="banner banner--warn mt-16">
+          <span data-icon="shield"></span>
+          <div>隐私说明：管理员不可查看简历正文、建议全文与联系方式；分析质量相关问题请由学生在学生端反馈。</div>
+        </div>`,
+      footer: '<button class="btn btn-outline" type="button" data-close>关闭</button>'
+    });
+    m.el.querySelector('[data-close]').addEventListener('click', m.close);
+  }
+
+  seg.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-status]');
+    if (!btn || btn.classList.contains('active')) return;
+    Array.from(seg.querySelectorAll('button')).forEach((b) => b.classList.toggle('active', b === btn));
+    state.status = btn.dataset.status;
+    state.page = 1;
+    load(false);
+  });
+
+  search.addEventListener('input', () => {
+    state.q = search.value;
+    applyFilter(true);
+  });
+
+  tbody.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-act="detail"]');
+    if (!btn) return;
+    openDetail(btn.dataset.id);
+  });
+
+  prevBtn.addEventListener('click', () => {
+    if (state.loading || state.page <= 1) return;
+    state.page -= 1;
+    renderAll();
+  });
+
+  nextBtn.addEventListener('click', () => {
+    const pages = Math.max(1, Math.ceil(state.rows.length / PAGE_SIZE));
+    if (state.loading || state.page >= pages) return;
+    state.page += 1;
+    renderAll();
+  });
+
+  refreshBtn.addEventListener('click', () => load(true));
+
+  load(false);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>API 控制台 · 简历工坊</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+  .api-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(330px, .85fr); gap: 18px; align-items: start; }
+  @media (max-width: 1180px) { .api-grid { grid-template-columns: 1fr; } }
+  .method-badge {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 52px;
+    padding: 2px 7px; border-radius: 6px; font-family: var(--font-mono); font-size: 10.5px;
+    font-weight: 700; letter-spacing: .04em; border: 1px solid transparent;
+  }
+  .method-GET { color: #1F6B4F; background: #EAF6F0; border-color: #CDE7D9; }
+  .method-POST { color: #1B4D6B; background: #EAF2F8; border-color: #CBDDEB; }
+  .method-PUT, .method-PATCH { color: #7A5216; background: #FEF7EC; border-color: #F0DCBC; }
+  .method-DELETE { color: #8E1B13; background: #FDF3F2; border-color: #F5D3D0; }
+  .method-HEAD, .method-OPTIONS { color: var(--ink-sub); background: #F1EEE7; border-color: #E1DCD1; }
+  .url-line {
+    font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-sub);
+    max-width: 230px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .api-grid .tbl th, .api-grid .tbl td { white-space: nowrap; }
+  .api-grid .cell-main, .api-grid .cell-sub { white-space: normal; }
+  .api-grid .actions { display: flex; gap: 4px; justify-content: flex-end; }
+  .editor-block { border-top: 1px solid var(--border); padding-top: 14px; margin-top: 16px; }
+  .editor-block:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+  .editor-block-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .editor-block-title { font-size: 12.5px; font-weight: 700; color: var(--ink); }
+  .kv-editor { display: flex; flex-direction: column; gap: 8px; }
+  .header-row { display: grid; grid-template-columns: 1fr 1.4fr auto auto; gap: 8px; align-items: center; }
+  .param-row { display: grid; grid-template-columns: 1fr .78fr 1fr 1fr auto auto; gap: 8px; align-items: center; }
+  .header-row .input, .param-row .input, .header-row .select, .param-row .select { height: 34px; font-size: 12px; }
+  .row-flag { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--ink-sub); white-space: nowrap; }
+  .result-meta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+  .result-meta .item { background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; padding: 8px 10px; }
+  .result-meta .k { font-size: 10.5px; color: var(--ink-faint); letter-spacing: .05em; }
+  .result-meta .v { margin-top: 3px; font-family: var(--font-mono); font-size: 14px; font-weight: 700; }
+  .result-box {
+    background: #10241E; color: #DCE9E1; border-radius: 10px; padding: 12px 14px;
+    font-family: var(--font-mono); font-size: 11.5px; line-height: 1.65; max-height: 300px;
+    overflow: auto; white-space: pre-wrap; word-break: break-all; margin: 0;
+  }
+  .result-box--light { background: #F7F5EF; color: #2C3A33; border: 1px solid var(--border); }
+  .result-title { font-size: 11px; font-weight: 700; color: var(--ink-faint); letter-spacing: .06em; margin: 12px 0 6px; }
+  .result-title:first-child { margin-top: 0; }
+  .detail-row { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; line-height: 1.6; }
+  .detail-row .k { color: var(--ink-faint); flex: 0 0 58px; }
+  .detail-row .v { color: var(--ink); min-width: 0; word-break: break-all; }
+  .side-empty { padding: 26px 12px; text-align: center; color: var(--ink-faint); font-size: 12px; }
+</style>
+</head>
+<body data-page="api-console">
+<aside class="app-nav">
+  <div class="brand">
+    <div class="brand-mark">简</div>
+    <div class="brand-text"><strong>简历工坊</strong><span>AI RESUME STUDIO</span></div>
+  </div>
+  <div class="nav-group-label">学生工作区</div>
+  <nav class="nav-list" aria-label="学生端导航">
+    <a class="nav-item" data-nav="dashboard" href="dashboard.html"><span class="nav-ic" data-icon="layout-dashboard"></span><span>工作台</span></a>
+    <a class="nav-item" data-nav="resumes" href="resumes.html"><span class="nav-ic" data-icon="file-text"></span><span>我的简历</span></a>
+    <a class="nav-item" data-nav="jobs" href="jobs.html"><span class="nav-ic" data-icon="briefcase"></span><span>岗位管理</span></a>
+    <a class="nav-item" data-nav="analysis" href="analysis.html"><span class="nav-ic" data-icon="sparkles"></span><span>简历分析</span></a>
+    <a class="nav-item" data-nav="records" href="records.html"><span class="nav-ic" data-icon="history"></span><span>分析记录</span></a>
+    <a class="nav-item" data-nav="versions" href="versions.html"><span class="nav-ic" data-icon="git-compare"></span><span>版本管理</span></a>
+    <a class="nav-item" data-nav="compare" href="compare.html"><span class="nav-ic" data-icon="target"></span><span>简历对比</span></a>
+    <a class="nav-item" data-nav="api-console" href="api-console.html"><span class="nav-ic" data-icon="server"></span><span>API 控制台</span></a>
+  </nav>
+  <div class="nav-foot">
+    <div class="nav-tip"><span data-icon="shield"></span><span>数据保存在本机服务与数据库</span></div>
+    <div class="user-card">
+      <div class="avatar" id="navAvatar">林</div>
+      <div class="user-meta"><strong id="navUserName">林知远</strong><span>学生账号</span></div>
+      <button class="icon-btn" id="logoutBtn" type="button" title="退出登录" aria-label="退出登录"><span data-icon="log-out"></span></button>
+    </div>
+  </div>
+</aside>
+<main class="app-content">
+  <div class="content-wrap">
+    <div class="breadcrumb reveal">
+      <span>学生工作区</span>
+      <span data-icon="chevron-right"></span>
+      <span>API 控制台</span>
+    </div>
+
+    <div class="page-head reveal" style="--d:1">
+      <div>
+        <h1 class="page-title">API 控制台</h1>
+        <p class="page-sub">把常用接口配成可复用的「自定义 API」：填写地址与参数、在线测试、保存后在页面脚本中直接调用。</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-outline" id="syncBtn" type="button"><span data-icon="refresh-cw"></span>同步本地配置<span class="tag tag-warn hidden" id="pendingBadge" style="margin-left:6px">0</span></button>
+        <button class="btn btn-primary" id="newBtn" type="button"><span data-icon="plus"></span>新建 API</button>
+      </div>
+    </div>
+
+    <div class="banner banner--info reveal" style="--d:2">
+      <span data-icon="info"></span>
+      <div>
+        <strong>使用流程：</strong>新建配置 → 填写请求方法、地址、请求头、参数与请求体 → 点「测试请求」确认状态码与返回 → 保存。
+        保存后可在页面脚本里用 <code>Api.Custom.invokeByName('配置名称', { params })</code> 直接调用；配置同时写入服务端数据库与本机缓存。
+      </div>
+    </div>
+
+    <div class="banner banner--warn reveal hidden" id="offlineBanner" style="--d:2;margin-top:12px">
+      <span data-icon="alert-triangle"></span>
+      <div id="offlineText">云端暂不可用，当前展示的是本机缓存。</div>
+    </div>
+
+    <div class="toolbar reveal" style="--d:3">
+      <div class="search-box">
+        <span data-icon="search"></span>
+        <input class="input" id="searchInput" type="search" placeholder="搜索名称、地址或标签" autocomplete="off">
+      </div>
+      <div class="row wrap" style="gap:10px">
+        <select class="select" id="groupSelect" style="min-width:150px"><option value="">全部分组</option></select>
+        <select class="select" id="tagSelect" style="min-width:140px"><option value="">全部标签</option></select>
+        <span class="small faint" id="listCount">共 0 个配置</span>
+      </div>
+    </div>
+
+    <div class="api-grid reveal" style="--d:4">
+      <section class="card">
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>配置名称</th>
+                <th>请求</th>
+                <th style="text-align:right">操作</th>
+              </tr>
+            </thead>
+            <tbody id="apiBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <aside class="stack">
+        <section class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">测试与调用</div>
+              <div class="card-sub" id="testSub">从左侧选择一个配置后可发起真实请求</div>
+            </div>
+            <span class="tag tag-neutral" id="testBadge">未选择</span>
+          </div>
+          <div class="card-body">
+            <div id="testEmpty" class="side-empty">还没有可测试的配置，先新建一个 API。</div>
+            <div id="testPanel" class="hidden">
+              <div class="detail-row"><span class="k">名称</span><span class="v" id="selName">—</span></div>
+              <div class="detail-row"><span class="k">请求</span><span class="v" id="selRequest">—</span></div>
+              <div class="detail-row"><span class="k">分组</span><span class="v" id="selGroup">—</span></div>
+              <div class="row mt-12" style="gap:8px">
+                <button class="btn btn-primary btn-sm" id="invokeBtn" type="button"><span data-icon="play"></span>发起调用</button>
+                <button class="btn btn-outline btn-sm" id="editSelectedBtn" type="button"><span data-icon="edit-3"></span>编辑配置</button>
+              </div>
+              <div id="invokeResult" class="hidden" style="margin-top:14px"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card card--quiet">
+          <div class="card-head">
+            <div>
+              <div class="card-title">在代码中调用</div>
+              <div class="card-sub">保存后的配置可直接接入现有请求体系</div>
+            </div>
+            <span class="tag tag-info">Api.Custom</span>
+          </div>
+          <div class="card-body">
+            <pre class="result-box" id="snippet">// 先在左侧选择一个配置生成示例</pre>
+            <div class="field-hint mt-8">失败自动重试、超时、401 跳转登录均由统一请求层处理；调用结果通过 <code>data.ok</code> 与 <code>data.status</code> 判断。</div>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </div>
+</main>
+
+<script src="../api.js"></script>
+<script src="../app.js"></script>
+<script>
+  App.init({ role: 'student', page: 'api-console' });
+
+(function () {
+  const $ = App.qs;
+  const apiBody = $('#apiBody');
+  const listCount = $('#listCount');
+  const searchInput = $('#searchInput');
+  const groupSelect = $('#groupSelect');
+  const tagSelect = $('#tagSelect');
+  const newBtn = $('#newBtn');
+  const syncBtn = $('#syncBtn');
+  const pendingBadge = $('#pendingBadge');
+  const offlineBanner = $('#offlineBanner');
+  const offlineText = $('#offlineText');
+
+  const testEmpty = $('#testEmpty');
+  const testPanel = $('#testPanel');
+  const testBadge = $('#testBadge');
+  const testSub = $('#testSub');
+  const selName = $('#selName');
+  const selRequest = $('#selRequest');
+  const selGroup = $('#selGroup');
+  const invokeResult = $('#invokeResult');
+  const snippet = $('#snippet');
+
+  let items = [];
+  let groups = [];
+  let tags = [];
+  let selectedId = null;
+  let searchTimer = null;
+
+  const METHOD_CLASS = (m) => 'method-' + String(m || 'GET').toUpperCase();
+
+  /* ---------------- 列表 ---------------- */
+
+  function renderFilters(data) {
+    groups = data.groups || [];
+    tags = data.tags || [];
+    const keepGroup = groupSelect.value;
+    const keepTag = tagSelect.value;
+    groupSelect.innerHTML = '<option value="">全部分组</option>'
+      + groups.map((g) => `<option value="${App.esc(g)}">${App.esc(g)}</option>`).join('');
+    tagSelect.innerHTML = '<option value="">全部标签</option>'
+      + tags.map((t) => `<option value="${App.esc(t)}">${App.esc(t)}</option>`).join('');
+    if (keepGroup && groups.includes(keepGroup)) groupSelect.value = keepGroup;
+    if (keepTag && tags.includes(keepTag)) tagSelect.value = keepTag;
+  }
+
+  function rowHTML(item) {
+    const tagsHTML = (item.tags || []).map((t) => `<span class="chip">${App.esc(t)}</span>`).join('');
+    return `
+      <tr data-id="${item.id}">
+        <td>
+          <div class="cell-main">${App.esc(item.name)}</div>
+          <div class="cell-sub">${App.esc(item.group || '默认分组')}${item.enabled ? '' : ' · 已停用'} · 更新 ${App.esc((item.updatedAt || '').slice(5))}</div>
+          ${tagsHTML ? `<div class="chips mt-8">${tagsHTML}</div>` : ''}
+        </td>
+        <td>
+          <span class="method-badge ${METHOD_CLASS(item.method)}">${App.esc(item.method)}</span>
+          <div class="url-line" title="${App.esc(item.url)}">${App.esc(item.url)}</div>
+        </td>
+        <td>
+          <div class="actions">
+            <button class="btn btn-outline btn-sm" type="button" data-act="test" data-id="${item.id}"><span data-icon="play"></span>测试</button>
+            <button class="btn btn-ghost btn-sm" type="button" data-act="edit" data-id="${item.id}" title="编辑" aria-label="编辑"><span data-icon="edit-3"></span></button>
+            <button class="btn btn-ghost btn-sm" type="button" data-act="copy" data-id="${item.id}" title="复制" aria-label="复制"><span data-icon="copy"></span></button>
+            <button class="btn btn-ghost btn-sm" type="button" data-act="del" data-id="${item.id}" title="删除" aria-label="删除"><span data-icon="trash-2"></span></button>
+          </div>
+        </td>
+      </tr>`;
+  }
+
+  function renderList() {
+    listCount.textContent = `共 ${items.length} 个配置`;
+    if (!items.length) {
+      const hasFilter = searchInput.value.trim() || groupSelect.value || tagSelect.value;
+      apiBody.innerHTML = `
+        <tr><td colspan="3">
+          <div class="empty">
+            <div class="empty-icon" data-icon="${hasFilter ? 'search' : 'server'}"></div>
+            <div class="empty-title">${hasFilter ? '没有匹配的配置' : '还没有自定义 API'}</div>
+            <div class="empty-text">${hasFilter ? '换个关键词、分组或标签试试' : '把常用接口配置一次，之后在页面脚本里直接调用'}</div>
+            <button class="btn ${hasFilter ? 'btn-outline' : 'btn-primary'} btn-sm" type="button" data-act="${hasFilter ? 'clear' : 'new'}">
+              ${hasFilter ? '清除筛选' : '<span data-icon="plus"></span>新建第一个 API'}
+            </button>
+          </div>
+        </td></tr>`;
+      App.renderIcons(apiBody);
+      renderSide();
+      return;
+    }
+    apiBody.innerHTML = items.map(rowHTML).join('');
+    App.renderIcons(apiBody);
+    if (selectedId && !items.some((it) => String(it.id) === String(selectedId))) selectedId = null;
+    renderSide();
+  }
+
+  function renderSkeleton() {
+    apiBody.innerHTML = Array.from({ length: 3 }).map(() => `
+      <tr>
+        <td><div class="sk sk-line w60"></div><div class="sk sk-line w40"></div></td>
+        <td><div class="sk sk-line w80"></div></td>
+        <td><div class="sk sk-line w40"></div></td>
+      </tr>`).join('');
+  }
+
+  async function load() {
+    renderSkeleton();
+    offlineBanner.classList.add('hidden');
+    const res = await Api.Custom.list({
+      q: searchInput.value.trim(),
+      group: groupSelect.value,
+      tag: tagSelect.value
+    });
+    if (res.code !== 0) {
+      listCount.textContent = '—';
+      apiBody.innerHTML = `
+        <tr><td colspan="3">
+          <div class="empty">
+            <div class="empty-icon" data-icon="alert-triangle"></div>
+            <div class="empty-title">配置加载失败</div>
+            <div class="empty-text">${App.esc(res.message)}</div>
+            <button class="btn btn-outline btn-sm" type="button" data-act="retry"><span data-icon="refresh-cw"></span>重新加载</button>
+          </div>
+        </td></tr>`;
+      App.renderIcons(apiBody);
+      App.toast(res.message, 'error');
+      return;
+    }
+    const data = res.data || {};
+    items = data.items || [];
+    renderFilters(data);
+    if (data.offline) {
+      offlineBanner.classList.remove('hidden');
+      offlineText.textContent = '云端暂不可用，已切换到本机缓存（' + items.length + ' 条）。' + (data.offlineMessage || '');
+    }
+    renderList();
+    refreshPending();
+  }
+
+  async function refreshPending() {
+    const n = await Api.Custom.pendingCount();
+    pendingBadge.textContent = n;
+    pendingBadge.classList.toggle('hidden', !n);
+  }
+
+  /* ---------------- 右侧测试台 ---------------- */
+
+  function selected() {
+    return items.find((it) => String(it.id) === String(selectedId)) || null;
+  }
+
+  function renderSide() {
+    const item = selected();
+    testEmpty.classList.toggle('hidden', !!item);
+    testPanel.classList.toggle('hidden', !item);
+    if (!item) {
+      testBadge.textContent = '未选择';
+      testBadge.className = 'tag tag-neutral';
+      return;
+    }
+    testBadge.textContent = item.enabled ? '可调用' : '已停用';
+    testBadge.className = 'tag ' + (item.enabled ? 'tag-success' : 'tag-warn');
+    testSub.textContent = '真实请求由服务端代发，避免浏览器跨域';
+    selName.textContent = item.name;
+    selRequest.textContent = item.method + ' ' + item.url;
+    selGroup.textContent = (item.group || '默认分组') + ((item.tags || []).length ? ' · ' + item.tags.join(' / ') : '');
+    const paramExample = {};
+    (item.params || []).filter((p) => p.enabled !== false).forEach((p) => {
+      paramExample[p.name] = p.value || p.defaultValue || '';
+    });
+    snippet.textContent =
+      `// ${item.name}\n`
+      + `const res = await Api.Custom.invoke('${item.id}', {\n`
+      + `  params: ${JSON.stringify(paramExample, null, 2).replace(/\n/g, '\n  ')}\n`
+      + `});\n`
+      + `if (res.code === 0 && res.data.ok) {\n`
+      + `  console.log(res.data.status, res.data.durationMs + 'ms');\n`
+      + `  console.log(res.data.body);\n`
+      + `} else {\n`
+      + `  console.warn(res.message || res.data.message);\n`
+      + `}`;
+    /* 按名称调用，接入业务逻辑更直观 */
+    snippet.textContent += `\n\n// 或按名称调用\nconst same = await Api.Custom.invokeByName('${item.name}');`;
+  }
+
+  function prettyBody(text, contentType) {
+    if (!text) return '（空响应体）';
+    const isJson = /json/i.test(contentType || '') || /^\s*[\{\[]/.test(text);
+    if (!isJson) return text;
+    try { return JSON.stringify(JSON.parse(text), null, 2); } catch (e) { return text; }
+  }
+
+  function renderResult(container, data) {
+    const ok = !!data.ok;
+    const meta = `
+      <div class="result-meta">
+        <div class="item"><div class="k">状态码</div><div class="v">${data.status || '—'} ${App.esc(data.statusText || '')}</div></div>
+        <div class="item"><div class="k">耗时</div><div class="v">${data.durationMs != null ? data.durationMs + ' ms' : '—'}</div></div>
+        <div class="item"><div class="k">尝试次数</div><div class="v">${data.attempts || 1}</div></div>
+      </div>
+      <div class="result-title">请求</div>
+      <div class="result-box result-box--light">${App.esc(data.method + ' ' + data.url)}
+${App.esc(Object.entries(data.requestHeaders || {}).map(([k, v]) => k + ': ' + v).join('\n') || '（无自定义请求头）')}
+${data.requestBody ? '\n\n' + App.esc(data.requestBody) : ''}</div>
+      <div class="result-title">响应${data.bodyTruncated ? '（已截断至 64KB）' : ''}</div>
+      <pre class="result-box">${App.esc(prettyBody(data.body, (data.responseHeaders || {})['content-type'] || (data.responseHeaders || {})['Content-Type']))}</pre>`;
+    container.innerHTML = (ok ? '' : `<div class="banner banner--danger" style="margin-bottom:12px"><span data-icon="alert-triangle"></span><div>${App.esc(data.message || '请求失败')}</div></div>`) + meta;
+    container.classList.remove('hidden');
+    App.renderIcons(container);
+  }
+
+  async function invokeSelected() {
+    const item = selected();
+    if (!item) return;
+    const btn = $('#invokeBtn');
+    const old = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner spinner--light"></span> 请求中';
+    const res = await Api.Custom.invoke(item.id, {});
+    btn.disabled = false;
+    btn.innerHTML = old;
+    App.renderIcons(btn);
+    if (res.code !== 0) {
+      invokeResult.innerHTML = `<div class="banner banner--danger"><span data-icon="alert-triangle"></span><div>${App.esc(res.message)}</div></div>`;
+      invokeResult.classList.remove('hidden');
+      App.renderIcons(invokeResult);
+      App.toast(res.message, 'error');
+      return;
+    }
+    renderResult(invokeResult, res.data || {});
+    App.toast(res.data && res.data.ok ? '调用成功' : '调用完成，但返回非 2xx', res.data && res.data.ok ? 'success' : 'info');
+  }
+
+  /* ---------------- 配置编辑器 ---------------- */
+
+  function headerRowHTML(h) {
+    const masked = !!(h && h.masked);
+    const placeholder = masked
+      ? '已加密：' + (h.value || '****') + '（留空保持不变）'
+      : '值，如 Bearer xxx';
+    return `
+      <div class="header-row" data-masked="${masked}">
+        <input class="input" data-k="name" placeholder="请求头名称，如 Authorization" value="${App.esc(h && h.name || '')}">
+        <input class="input" data-k="value" placeholder="${App.esc(placeholder)}" value="${masked ? '' : App.esc(h && h.value || '')}">
+        <label class="row-flag"><input type="checkbox" data-k="enabled" ${!h || h.enabled !== false ? 'checked' : ''}>启用</label>
+        <button class="btn btn-ghost btn-sm" type="button" data-act="rmHeader"><span data-icon="trash-2"></span></button>
+      </div>`;
+  }
+
+  function paramRowHTML(p) {
+    const type = (p && p.type) || 'string';
+    const options = ['string', 'number', 'boolean', 'array', 'object']
+      .map((t) => `<option value="${t}"${t === type ? ' selected' : ''}>${t}</option>`).join('');
+    return `
+      <div class="param-row">
+        <input class="input" data-k="name" placeholder="参数名" value="${App.esc(p && p.name || '')}">
+        <select class="select" data-k="type">${options}</select>
+        <input class="input" data-k="value" placeholder="当前值" value="${App.esc(p && p.value || '')}">
+        <input class="input" data-k="defaultValue" placeholder="默认值" value="${App.esc(p && p.defaultValue || '')}">
+        <label class="row-flag"><input type="checkbox" data-k="enabled" ${!p || p.enabled !== false ? 'checked' : ''}>启用</label>
+        <button class="btn btn-ghost btn-sm" type="button" data-act="rmParam"><span data-icon="trash-2"></span></button>
+      </div>`;
+  }
+
+  function openEditor(item) {
+    const isEdit = !!item;
+    const data = item || { method: 'GET', url: '', group: '', tags: [], headers: [], params: [], bodyType: 'none', body: '', timeoutMs: 15000, retries: 0, enabled: true };
+    const m = App.modal({
+      wide: true,
+      title: isEdit ? '编辑自定义 API' : '新建自定义 API',
+      sub: '填写请求定义，测试通过后保存；保存后对其他页面脚本立即可用',
+      body: `
+        <div class="editor-block">
+          <div class="form-grid">
+            <div class="field" id="fName">
+              <label class="field-label" for="edName">API 名称<span class="req">*</span></label>
+              <input class="input" id="edName" maxlength="60" placeholder="例如：简历解析接口" value="${App.esc(data.name || '')}">
+              <div class="field-error">请填写 API 名称</div>
+            </div>
+            <div class="field">
+              <label class="field-label" for="edMethod">请求方法</label>
+              <select class="select" id="edMethod">
+                ${['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'].map((x) => `<option value="${x}"${x === data.method ? ' selected' : ''}>${x}</option>`).join('')}
+              </select>
+            </div>
+            <div class="field span-2" id="fUrl">
+              <label class="field-label" for="edUrl">请求地址<span class="req">*</span></label>
+              <input class="input" id="edUrl" maxlength="500" placeholder="https://api.example.com/v1/items" value="${App.esc(data.url || '')}" spellcheck="false">
+              <div class="field-error">地址需以 http:// 或 https:// 开头</div>
+              <div class="field-hint">不支持跨域也可用：真实请求由本系统服务端代发</div>
+            </div>
+            <div class="field">
+              <label class="field-label" for="edGroup">分组</label>
+              <input class="input" id="edGroup" maxlength="40" list="groupOptions" placeholder="默认分组" value="${App.esc(data.group || '')}">
+              <datalist id="groupOptions">${groups.map((g) => `<option value="${App.esc(g)}"></option>`).join('')}</datalist>
+            </div>
+            <div class="field">
+              <label class="field-label" for="edTags">标签<span class="muted small" style="font-weight:400">（逗号分隔）</span></label>
+              <input class="input" id="edTags" maxlength="200" placeholder="例如：简历，解析" value="${App.esc((data.tags || []).join('，'))}">
+            </div>
+            <div class="field">
+              <label class="field-label" for="edTimeout">超时（毫秒）</label>
+              <input class="input" id="edTimeout" type="number" min="1000" max="60000" step="1000" value="${data.timeoutMs || 15000}">
+              <div class="field-hint">1000 ~ 60000，默认 15000</div>
+            </div>
+            <div class="field">
+              <label class="field-label" for="edRetries">失败重试次数</label>
+              <input class="input" id="edRetries" type="number" min="0" max="3" step="1" value="${data.retries || 0}">
+              <div class="field-hint">仅对网络异常、429 与 5xx 生效，最多 3 次</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="editor-block">
+          <div class="editor-block-head">
+            <div class="editor-block-title">请求头</div>
+            <button class="btn btn-outline btn-sm" type="button" data-act="addHeader"><span data-icon="plus"></span>添加请求头</button>
+          </div>
+          <div class="kv-editor" id="headerEditor">${(data.headers || []).map(headerRowHTML).join('')}</div>
+          <div class="field-hint mt-8">Host、Content-Length、Connection 等由系统管理，不允许手工设置；Authorization、Cookie、api-key 等敏感头加密存储，回显只显示掩码，留空表示沿用原值。</div>
+        </div>
+
+        <div class="editor-block">
+          <div class="editor-block-head">
+            <div class="editor-block-title">请求参数（查询串）</div>
+            <button class="btn btn-outline btn-sm" type="button" data-act="addParam"><span data-icon="plus"></span>添加参数</button>
+          </div>
+          <div class="param-row" style="margin-bottom:6px">
+            <span class="mini-label">参数名</span><span class="mini-label">类型</span>
+            <span class="mini-label">当前值</span><span class="mini-label">默认值</span><span class="mini-label">启用</span><span></span>
+          </div>
+          <div class="kv-editor" id="paramEditor">${(data.params || []).map(paramRowHTML).join('')}</div>
+          <div class="field-hint mt-8">当前值为空时使用默认值；类型会在调用前校验（number/boolean/array/object）。</div>
+        </div>
+
+        <div class="editor-block">
+          <div class="editor-block-head">
+            <div class="editor-block-title">请求体</div>
+            <select class="select" id="edBodyType" style="width:170px">
+              ${[['none', '无请求体'], ['json', 'JSON'], ['form', '表单（key=value）'], ['text', '纯文本']]
+                .map(([v, label]) => `<option value="${v}"${v === data.bodyType ? ' selected' : ''}>${label}</option>`).join('')}
+            </select>
+          </div>
+          <textarea class="textarea" id="edBody" placeholder="GET 请求通常不需要请求体；JSON 类型请填写合法 JSON" style="min-height:96px">${App.esc(data.body || '')}</textarea>
+          <div class="field-hint mt-8" id="bodyHint"></div>
+        </div>
+
+        <div class="editor-block">
+          <label class="row-flag" style="font-size:12.5px"><input type="checkbox" id="edEnabled" ${data.enabled !== false ? 'checked' : ''}>启用该配置（停用后调用会被拒绝）</label>
+        </div>
+
+        <div id="modalResult" class="hidden" style="margin-top:14px"></div>`,
+      footer: `<button class="btn btn-ghost" type="button" data-act="cancel">取消</button>
+               <button class="btn btn-outline" type="button" data-act="test"><span data-icon="play"></span>测试请求</button>
+               <button class="btn btn-primary" type="button" data-act="save"><span data-icon="save"></span>保存配置</button>`
+    });
+
+    const bodyEl = m.body;
+    const headerEditor = bodyEl.querySelector('#headerEditor');
+    const paramEditor = bodyEl.querySelector('#paramEditor');
+    const bodyTypeEl = bodyEl.querySelector('#edBodyType');
+    const bodyElInput = bodyEl.querySelector('#edBody');
+    const bodyHint = bodyEl.querySelector('#bodyHint');
+    const result = bodyEl.querySelector('#modalResult');
+    const saveBtn = m.el.querySelector('[data-act="save"]');
+    const testBtn = m.el.querySelector('[data-act="test"]');
+
+    function syncBodyHint() {
+      const type = bodyTypeEl.value;
+      bodyElInput.disabled = type === 'none';
+      if (type === 'none') bodyElInput.placeholder = '当前类型不发送请求体';
+      else if (type === 'json') bodyElInput.placeholder = '{\n  "key": "value"\n}';
+      else if (type === 'form') bodyElInput.placeholder = 'username=linzhiyuan\npage=1';
+      else bodyElInput.placeholder = '任意文本内容';
+      bodyHint.textContent = type === 'form'
+        ? '每行一个 key=value，发送时自动做 URL 编码'
+        : type === 'json' ? '保存与测试前会校验 JSON 是否合法' : '';
+    }
+    syncBodyHint();
+    bodyTypeEl.addEventListener('change', syncBodyHint);
+
+    bodyEl.querySelector('[data-act="addHeader"]').addEventListener('click', () => {
+      headerEditor.insertAdjacentHTML('beforeend', headerRowHTML(null));
+      App.renderIcons(headerEditor);
+    });
+    bodyEl.querySelector('[data-act="addParam"]').addEventListener('click', () => {
+      paramEditor.insertAdjacentHTML('beforeend', paramRowHTML(null));
+      App.renderIcons(paramEditor);
+    });
+    bodyEl.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-act]');
+      if (!btn) return;
+      if (btn.dataset.act === 'rmHeader') btn.closest('.header-row').remove();
+      if (btn.dataset.act === 'rmParam') btn.closest('.param-row').remove();
+    });
+
+    function collect() {
+      const headers = Array.from(headerEditor.querySelectorAll('.header-row')).map((row) => {
+        const value = row.querySelector('[data-k="value"]').value;
+        return {
+          name: row.querySelector('[data-k="name"]').value.trim(),
+          value,
+          // 敏感头回显为掩码：留空表示沿用服务端已加密的原值
+          keep: row.dataset.masked === 'true' && value === '',
+          enabled: row.querySelector('[data-k="enabled"]').checked
+        };
+      }).filter((h) => h.name || h.value);
+      const params = Array.from(paramEditor.querySelectorAll('.param-row')).map((row) => ({
+        name: row.querySelector('[data-k="name"]').value.trim(),
+        type: row.querySelector('[data-k="type"]').value,
+        value: row.querySelector('[data-k="value"]').value,
+        defaultValue: row.querySelector('[data-k="defaultValue"]').value,
+        enabled: row.querySelector('[data-k="enabled"]').checked
+      })).filter((p) => p.name || p.value || p.defaultValue);
+      return {
+        id: isEdit ? item.id : undefined,
+        name: bodyEl.querySelector('#edName').value.trim(),
+        method: bodyEl.querySelector('#edMethod').value,
+        url: bodyEl.querySelector('#edUrl').value.trim(),
+        group: bodyEl.querySelector('#edGroup').value.trim(),
+        tags: bodyEl.querySelector('#edTags').value.split(/[,，]/).map((s) => s.trim()).filter(Boolean),
+        headers,
+        params,
+        bodyType: bodyTypeEl.value,
+        body: bodyTypeEl.value === 'none' ? '' : bodyElInput.value,
+        timeoutMs: Number(bodyEl.querySelector('#edTimeout').value) || 15000,
+        retries: Number(bodyEl.querySelector('#edRetries').value) || 0,
+        enabled: bodyEl.querySelector('#edEnabled').checked
+      };
+    }
+
+    function validate(payload) {
+      const badName = !payload.name;
+      const badUrl = !/^https?:\/\/\S+$/i.test(payload.url);
+      bodyEl.querySelector('#fName').classList.toggle('invalid', badName);
+      bodyEl.querySelector('#fUrl').classList.toggle('invalid', badUrl);
+      if (badName) bodyEl.querySelector('#edName').focus();
+      else if (badUrl) bodyEl.querySelector('#edUrl').focus();
+      return !badName && !badUrl;
+    }
+
+    m.el.querySelector('[data-act="cancel"]').addEventListener('click', m.close);
+
+    testBtn.addEventListener('click', async () => {
+      const payload = collect();
+      if (!validate(payload)) return;
+      const old = testBtn.innerHTML;
+      testBtn.disabled = true;
+      testBtn.innerHTML = '<span class="spinner"></span> 测试中';
+      const res = await Api.Custom.test(payload);
+      testBtn.disabled = false;
+      testBtn.innerHTML = old;
+      App.renderIcons(testBtn);
+      if (res.code !== 0) {
+        result.innerHTML = `<div class="banner banner--danger"><span data-icon="alert-triangle"></span><div>${App.esc(res.message)}</div></div>`;
+        result.classList.remove('hidden');
+        App.renderIcons(result);
+        return;
+      }
+      renderResult(result, res.data || {});
+      App.toast(res.data && res.data.ok ? '测试通过' : '测试完成，目标返回非 2xx', res.data && res.data.ok ? 'success' : 'info');
+    });
+
+    saveBtn.addEventListener('click', async () => {
+      const payload = collect();
+      if (!validate(payload)) return;
+      const old = saveBtn.innerHTML;
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<span class="spinner spinner--light"></span> 保存中';
+      const res = await Api.Custom.save(payload);
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = old;
+      App.renderIcons(saveBtn);
+      if (res.code !== 0) {
+        App.toast(res.message, 'error');
+        if (res.queued) await refreshPending();
+        return;
+      }
+      selectedId = res.data.id;
+      m.close();
+      App.toast(isEdit ? '配置已更新' : '配置已保存', 'success');
+      load();
+    });
+  }
+
+  /* ---------------- 交互 ---------------- */
+
+  newBtn.addEventListener('click', () => openEditor(null));
+
+  apiBody.addEventListener('click', async (e) => {
+    const el = e.target.closest('[data-act]');
+    if (!el) return;
+    const act = el.dataset.act;
+    if (act === 'new') { openEditor(null); return; }
+    if (act === 'retry') { load(); return; }
+    if (act === 'clear') { searchInput.value = ''; groupSelect.value = ''; tagSelect.value = ''; load(); return; }
+    const item = items.find((it) => String(it.id) === String(el.dataset.id));
+    if (!item) return;
+    if (act === 'edit') { openEditor(item); return; }
+    if (act === 'copy') {
+      const res = await Api.Custom.duplicate(item.id);
+      if (res.code !== 0) { App.toast(res.message, 'error'); return; }
+      App.toast('已复制为「' + res.data.name + '」', 'success');
+      load();
+      return;
+    }
+    if (act === 'del') {
+      const yes = await App.confirm({
+        title: '删除自定义 API',
+        text: `确定删除「${App.esc(item.name)}」吗？删除后业务代码中的调用将失效。`,
+        okText: '删除', danger: true
+      });
+      if (!yes) return;
+      const res = await Api.Custom.remove(item.id);
+      if (res.code !== 0) {
+        App.toast(res.message, 'error');
+        if (res.queued) await refreshPending();
+        return;
+      }
+      if (String(selectedId) === String(item.id)) { selectedId = null; invokeResult.classList.add('hidden'); }
+      App.toast('配置已删除', 'success');
+      load();
+      return;
+    }
+    if (act === 'test') {
+      selectedId = el.dataset.id;
+      renderList();
+      invokeSelected();
+    }
+  });
+
+  $('#invokeBtn').addEventListener('click', invokeSelected);
+  $('#editSelectedBtn').addEventListener('click', () => {
+    const item = selected();
+    if (item) openEditor(item);
+  });
+
+  syncBtn.addEventListener('click', async () => {
+    syncBtn.disabled = true;
+    const res = await Api.Custom.syncPending();
+    syncBtn.disabled = false;
+    if (res.code !== 0) { App.toast(res.message, 'error'); return; }
+    const { synced, failed } = res.data;
+    App.toast(failed ? `已同步 ${synced} 条，仍有 ${failed} 条待重试` : `已同步 ${synced} 条本地配置`, failed ? 'info' : 'success');
+    load();
+  });
+
+  searchInput.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(load, 250);
+  });
+  groupSelect.addEventListener('change', load);
+  tagSelect.addEventListener('change', load);
+
+  load();
+})();
+</script>
+</body>
+</html>

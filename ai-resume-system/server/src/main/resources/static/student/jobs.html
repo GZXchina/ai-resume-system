@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>岗位管理 · 简历工坊</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body data-page="jobs">
+<aside class="app-nav">
+  <div class="brand">
+    <div class="brand-mark">简</div>
+    <div class="brand-text"><strong>简历工坊</strong><span>AI RESUME STUDIO</span></div>
+  </div>
+  <div class="nav-group-label">学生工作区</div>
+  <nav class="nav-list" aria-label="学生端导航">
+    <a class="nav-item" data-nav="dashboard" href="dashboard.html"><span class="nav-ic" data-icon="layout-dashboard"></span><span>工作台</span></a>
+    <a class="nav-item" data-nav="resumes" href="resumes.html"><span class="nav-ic" data-icon="file-text"></span><span>我的简历</span></a>
+    <a class="nav-item" data-nav="jobs" href="jobs.html"><span class="nav-ic" data-icon="briefcase"></span><span>岗位管理</span></a>
+    <a class="nav-item" data-nav="analysis" href="analysis.html"><span class="nav-ic" data-icon="sparkles"></span><span>简历分析</span></a>
+    <a class="nav-item" data-nav="records" href="records.html"><span class="nav-ic" data-icon="history"></span><span>分析记录</span></a>
+    <a class="nav-item" data-nav="versions" href="versions.html"><span class="nav-ic" data-icon="git-compare"></span><span>版本管理</span></a>
+    <a class="nav-item" data-nav="compare" href="compare.html"><span class="nav-ic" data-icon="target"></span><span>简历对比</span></a>
+    <a class="nav-item" data-nav="api-console" href="api-console.html"><span class="nav-ic" data-icon="server"></span><span>API 控制台</span></a>
+  </nav>
+  <div class="nav-foot">
+    <div class="nav-tip"><span data-icon="shield"></span><span>数据保存在本机服务与数据库</span></div>
+    <div class="user-card">
+      <div class="avatar" id="navAvatar">林</div>
+      <div class="user-meta"><strong id="navUserName">林知远</strong><span>学生账号</span></div>
+      <button class="icon-btn" id="logoutBtn" type="button" title="退出登录" aria-label="退出登录"><span data-icon="log-out"></span></button>
+    </div>
+  </div>
+</aside>
+<main class="app-content">
+  <div class="content-wrap">
+    <div class="breadcrumb reveal">
+      <span>学生工作区</span>
+      <span data-icon="chevron-right"></span>
+      <span>岗位管理</span>
+    </div>
+
+    <div class="page-head reveal" style="--d:1">
+      <div>
+        <h1 class="page-title">岗位管理</h1>
+        <p class="page-sub">把目标岗位的 JD 固定下来，同一岗位可反复分析。</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-primary" id="newJobBtn" type="button"><span data-icon="plus"></span>新建岗位</button>
+      </div>
+    </div>
+
+    <div class="toolbar reveal" style="--d:2">
+      <div class="search-box">
+        <span data-icon="search"></span>
+        <input class="input" id="jobSearch" type="search" placeholder="搜索岗位名称或公司" autocomplete="off">
+      </div>
+      <div class="row wrap" style="gap:10px">
+        <select class="select" id="matchResumeSelect" style="min-width:230px" disabled>
+          <option value="">加载简历中…</option>
+        </select>
+        <span class="small faint" id="jobCount">共 0 个岗位</span>
+      </div>
+    </div>
+
+    <div class="banner banner--info reveal hidden" id="matchHint" style="--d:2">
+      <span data-icon="target"></span>
+      <div>匹配度 = 岗位 JD 关键词在本人简历（简介、技能、项目描述）中的覆盖率，仅用于排序参考，正式结果以分析任务为准。</div>
+    </div>
+
+    <div class="card reveal" style="--d:3">
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th>岗位 / 公司</th>
+              <th>技能关键词</th>
+              <th>匹配度</th>
+              <th>更新时间</th>
+              <th style="text-align:right">操作</th>
+            </tr>
+          </thead>
+          <tbody id="jobsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</main>
+<script src="../api.js"></script>
+<script src="../app.js"></script>
+<script>
+  App.init({ role: 'student', page: 'jobs' });
+
+(function () {
+  const $ = App.qs;
+  const jobsBody = $('#jobsBody');
+  const jobCount = $('#jobCount');
+  const searchInput = $('#jobSearch');
+  const newJobBtn = $('#newJobBtn');
+  const matchResumeSelect = $('#matchResumeSelect');
+  const matchHint = $('#matchHint');
+
+  let jobs = [];
+  let editingId = null;
+  let searchTimer = null;
+  let reqSeq = 0;
+  let matchResumeId = '';
+
+  const parseKeywords = (value) => String(value || '')
+    .split(/[,，]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  function renderSkeleton() {
+    jobsBody.innerHTML = Array.from({ length: 4 }).map(() => `
+      <tr>
+        <td><div class="sk sk-line w60"></div><div class="sk sk-line w40"></div></td>
+        <td><div class="sk sk-line w80"></div></td>
+        <td><div class="sk sk-line w40"></div></td>
+        <td><div class="sk sk-line w40"></div></td>
+        <td><div class="sk sk-line w40"></div></td>
+      </tr>`).join('');
+  }
+
+  function matchCell(job) {
+    if (!matchResumeId) return '<span class="small faint">—</span>';
+    if (!job.keywordCount) return '<span class="small faint">JD 无可识别关键词</span>';
+    const score = Number(job.matchScore) || 0;
+    return `
+      <div class="row" style="gap:8px">
+        <span class="num strong">${score}</span>
+        <div class="meter" style="width:56px"><i style="width:${Math.max(0, Math.min(100, score))}%"></i></div>
+      </div>
+      <div class="cell-sub">覆盖 ${job.matched.length}/${job.keywordCount} 个关键词</div>`;
+  }
+
+  function rowHTML(job) {
+    const keywords = job.keywords || [];
+    const chips = keywords.slice(0, 3).map((k) => `<span class="chip">${App.esc(k)}</span>`).join('');
+    const more = keywords.length > 3 ? `<span class="chip">+${keywords.length - 3}</span>` : '';
+    return `
+      <tr>
+        <td>
+          <div class="cell-main">${App.esc(job.title)}</div>
+          <div class="cell-sub">${App.esc(job.company)}</div>
+        </td>
+        <td>${keywords.length ? `<div class="chips">${chips}${more}</div>` : '<span class="small faint">未填写关键词</span>'}</td>
+        <td>${matchCell(job)}</td>
+        <td><span class="num small">${App.esc(job.updatedAt)}</span></td>
+        <td>
+          <div class="actions">
+            <button class="btn btn-outline btn-sm" type="button" data-act="edit" data-id="${job.id}"><span data-icon="edit-3"></span>编辑</button>
+            <a class="btn btn-primary btn-sm" href="analysis.html?job=${encodeURIComponent(job.id)}"><span data-icon="arrow-right"></span>用它分析</a>
+          </div>
+        </td>
+      </tr>`;
+  }
+
+  function renderList() {
+    jobCount.textContent = matchResumeId
+      ? `共 ${jobs.length} 个岗位 · 已按匹配度排序`
+      : `共 ${jobs.length} 个岗位`;
+    matchHint.classList.toggle('hidden', !matchResumeId);
+    const q = searchInput.value.trim();
+    if (!jobs.length) {
+      jobsBody.innerHTML = `
+        <tr>
+          <td colspan="5">
+            <div class="empty">
+              <div class="empty-icon" data-icon="${q ? 'search' : 'briefcase'}"></div>
+              <div class="empty-title">${q ? '未找到匹配岗位' : '还没有目标岗位'}</div>
+              <div class="empty-text">${q ? '换个岗位名称或公司关键词试试' : '把常投岗位的 JD 存下来，之后可以反复分析'}</div>
+              ${q
+                ? '<button class="btn btn-outline btn-sm" type="button" data-act="clear">清除搜索</button>'
+                : '<button class="btn btn-primary btn-sm" type="button" data-act="new"><span data-icon="plus"></span>新建岗位</button>'}
+            </div>
+          </td>
+        </tr>`;
+      App.renderIcons(jobsBody);
+      return;
+    }
+    jobsBody.innerHTML = jobs.map(rowHTML).join('');
+    App.renderIcons(jobsBody);
+  }
+
+  async function loadJobs() {
+    const my = ++reqSeq;
+    const q = searchInput.value.trim();
+    renderSkeleton();
+    const res = matchResumeId
+      ? await Api.Job.match({ resumeId: matchResumeId, q })
+      : await Api.Job.list({ q });
+    if (my !== reqSeq) return;
+    if (res.code !== 0) {
+      jobCount.textContent = '—';
+      jobsBody.innerHTML = `
+        <tr>
+          <td colspan="4">
+            <div class="empty">
+              <div class="empty-icon" data-icon="alert-triangle"></div>
+              <div class="empty-title">岗位加载失败</div>
+              <div class="empty-text">${App.esc(res.message)}</div>
+              <button class="btn btn-outline btn-sm" type="button" data-act="retry"><span data-icon="refresh-cw"></span>重新加载</button>
+            </div>
+          </td>
+        </tr>`;
+      App.renderIcons(jobsBody);
+      App.toast(res.message, 'error');
+      return;
+    }
+    jobs = matchResumeId ? ((res.data && res.data.jobs) || []) : (res.data || []);
+    renderList();
+  }
+
+  async function loadResumeOptions() {
+    const res = await Api.Resume.list();
+    if (res.code !== 0) {
+      matchResumeSelect.innerHTML = '<option value="">匹配度暂不可用</option>';
+      return;
+    }
+    const resumes = res.data || [];
+    if (!resumes.length) {
+      matchResumeSelect.innerHTML = '<option value="">暂无简历，无法计算匹配度</option>';
+      return;
+    }
+    matchResumeSelect.innerHTML = '<option value="">全部岗位（不排序）</option>'
+      + resumes.map((r) => `<option value="${r.id}">按「${App.esc(r.name)}」匹配度排序</option>`).join('');
+    matchResumeSelect.disabled = false;
+    const param = App.param('resumeId');
+    if (param && resumes.some((r) => r.id === param)) {
+      matchResumeSelect.value = param;
+      matchResumeId = param;
+    }
+  }
+
+  function paintKeywordPreview(preview, input) {
+    const list = parseKeywords(input.value);
+    preview.innerHTML = list.length
+      ? list.map((k) => `<span class="chip">${App.esc(k)}</span>`).join('')
+      : '<span class="small faint">解析后的关键词会显示在这里</span>';
+  }
+
+  function openJobModal(job) {
+    editingId = job ? job.id : null;
+    const keywordText = job ? (job.keywords || []).join('，') : '';
+    const m = App.modal({
+      title: job ? '编辑岗位' : '新建岗位',
+      sub: job ? '保存后更新该岗位的 JD 与关键词，历史分析记录不受影响' : '把 JD 原文粘贴进来，后续分析将据此比对关键词',
+      body: `
+        <div class="form-grid">
+          <div class="field" id="jmTitleField">
+            <label class="field-label" for="jmTitle">岗位名称<span class="req">*</span></label>
+            <input class="input" id="jmTitle" maxlength="40" placeholder="例如：Java 后端开发实习生" value="${App.esc(job ? job.title : '')}">
+            <div class="field-error">请填写岗位名称</div>
+          </div>
+          <div class="field" id="jmCompanyField">
+            <label class="field-label" for="jmCompany">公司名称<span class="req">*</span></label>
+            <input class="input" id="jmCompany" maxlength="40" placeholder="例如：字节跳动" value="${App.esc(job ? job.company : '')}">
+            <div class="field-error">请填写公司名称</div>
+          </div>
+          <div class="field span-2" id="jmJdField">
+            <label class="field-label" for="jmJd">JD 文本<span class="req">*</span></label>
+            <textarea class="textarea" id="jmJd" placeholder="粘贴岗位 JD 原文，至少 10 字">${App.esc(job ? job.jd : '')}</textarea>
+            <div class="field-error">JD 文本不能少于 10 字</div>
+            <div class="field-hint">JD 用于提取关键词与匹配分析，建议保留原文</div>
+          </div>
+          <div class="field span-2" id="jmKwField">
+            <label class="field-label" for="jmKw">技能关键词<span class="muted small" style="font-weight:400">（逗号分隔，可留空）</span></label>
+            <input class="input" id="jmKw" placeholder="例如：Java，Spring Boot，MySQL" value="${App.esc(keywordText)}">
+            <div class="chips mt-8" id="jmKwPreview"></div>
+          </div>
+        </div>`,
+      footer: `<button class="btn btn-ghost" type="button" data-act="cancel">取消</button>
+               <button class="btn btn-primary" type="button" data-act="save"><span data-icon="check"></span>保存岗位</button>`
+    });
+
+    const titleInput = m.body.querySelector('#jmTitle');
+    const companyInput = m.body.querySelector('#jmCompany');
+    const jdInput = m.body.querySelector('#jmJd');
+    const kwInput = m.body.querySelector('#jmKw');
+    const preview = m.body.querySelector('#jmKwPreview');
+    const saveBtn = m.el.querySelector('[data-act="save"]');
+    const setInvalid = (sel, bad) => m.body.querySelector(sel).classList.toggle('invalid', bad);
+
+    paintKeywordPreview(preview, kwInput);
+    kwInput.addEventListener('input', () => paintKeywordPreview(preview, kwInput));
+    m.el.querySelector('[data-act="cancel"]').addEventListener('click', m.close);
+
+    saveBtn.addEventListener('click', async () => {
+      const title = titleInput.value.trim();
+      const company = companyInput.value.trim();
+      const jd = jdInput.value.trim();
+      const keywords = parseKeywords(kwInput.value);
+      const badTitle = !title;
+      const badCompany = !company;
+      const badJd = jd.length < 10;
+      setInvalid('#jmTitleField', badTitle);
+      setInvalid('#jmCompanyField', badCompany);
+      setInvalid('#jmJdField', badJd);
+      if (badTitle || badCompany || badJd) {
+        if (badTitle) titleInput.focus();
+        else if (badCompany) companyInput.focus();
+        else jdInput.focus();
+        return;
+      }
+
+      const oldHTML = saveBtn.innerHTML;
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<span class="spinner spinner--light"></span> 保存中';
+      const payload = { title, company, jd, keywords };
+      if (editingId) payload.id = editingId;
+      const res = await Api.Job.save(payload);
+      if (res.code !== 0) {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = oldHTML;
+        App.toast(res.message, 'error');
+        return;
+      }
+      const isEdit = !!editingId;
+      m.close();
+      App.toast(isEdit ? '岗位已更新' : '岗位已创建', 'success');
+      loadJobs();
+    });
+  }
+
+  newJobBtn.addEventListener('click', () => openJobModal(null));
+
+  jobsBody.addEventListener('click', (e) => {
+    const el = e.target.closest('[data-act]');
+    if (!el) return;
+    const act = el.dataset.act;
+    if (act === 'edit') {
+      const job = jobs.find((j) => j.id === el.dataset.id);
+      if (job) openJobModal(job);
+    } else if (act === 'retry') {
+      loadJobs();
+    } else if (act === 'clear') {
+      searchInput.value = '';
+      loadJobs();
+    } else if (act === 'new') {
+      openJobModal(null);
+    }
+  });
+
+  searchInput.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(loadJobs, 250);
+  });
+
+  matchResumeSelect.addEventListener('change', () => {
+    matchResumeId = matchResumeSelect.value;
+    loadJobs();
+  });
+
+  (async () => {
+    await loadResumeOptions();
+    loadJobs();
+  })();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>工作台 · 简历工坊</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+  .analysis-row { cursor: pointer; }
+  .mini-resume {
+    border-radius: var(--radius-sm);
+    padding-left: 8px;
+    padding-right: 8px;
+    transition: background .15s ease;
+  }
+  .mini-resume:hover { background: var(--surface-2); }
+</style>
+</head>
+<body data-page="dashboard">
+<aside class="app-nav">
+  <div class="brand">
+    <div class="brand-mark">简</div>
+    <div class="brand-text"><strong>简历工坊</strong><span>AI RESUME STUDIO</span></div>
+  </div>
+  <div class="nav-group-label">学生工作区</div>
+  <nav class="nav-list" aria-label="学生端导航">
+    <a class="nav-item" data-nav="dashboard" href="dashboard.html"><span class="nav-ic" data-icon="layout-dashboard"></span><span>工作台</span></a>
+    <a class="nav-item" data-nav="resumes" href="resumes.html"><span class="nav-ic" data-icon="file-text"></span><span>我的简历</span></a>
+    <a class="nav-item" data-nav="jobs" href="jobs.html"><span class="nav-ic" data-icon="briefcase"></span><span>岗位管理</span></a>
+    <a class="nav-item" data-nav="analysis" href="analysis.html"><span class="nav-ic" data-icon="sparkles"></span><span>简历分析</span></a>
+    <a class="nav-item" data-nav="records" href="records.html"><span class="nav-ic" data-icon="history"></span><span>分析记录</span></a>
+    <a class="nav-item" data-nav="versions" href="versions.html"><span class="nav-ic" data-icon="git-compare"></span><span>版本管理</span></a>
+  </nav>
+  <div class="nav-foot">
+    <div class="nav-tip"><span data-icon="shield"></span><span>数据仅保存在本机浏览器</span></div>
+    <div class="user-card">
+      <div class="avatar" id="navAvatar">林</div>
+      <div class="user-meta"><strong id="navUserName">林知远</strong><span>学生账号</span></div>
+      <button class="icon-btn" id="logoutBtn" type="button" title="退出登录" aria-label="退出登录"><span data-icon="log-out"></span></button>
+    </div>
+  </div>
+</aside>
+<main class="app-content">
+  <div class="content-wrap">
+    <div class="page-head reveal" style="--d:0">
+      <div>
+        <div class="breadcrumb"><span>学生工作区</span><span data-icon="chevron-right"></span><span>工作台</span></div>
+        <h1 class="page-title" id="greetTitle">下午好，<span class="accent">同学</span></h1>
+        <p class="page-sub">今天也把简历往目标岗位再推近一点。</p>
+      </div>
+      <div class="page-actions">
+        <a class="btn btn-outline" href="resume-edit.html"><span data-icon="plus"></span>新建简历</a>
+        <a class="btn btn-primary" href="analysis.html"><span data-icon="sparkles"></span>发起新分析</a>
+      </div>
+    </div>
+
+    <div class="grid grid-4">
+      <div class="stat-card reveal" style="--d:1">
+        <div class="stat-label"><span data-icon="file-text"></span>简历数</div>
+        <div class="stat-value" id="statResumes">—</div>
+        <div class="stat-meta" id="statResumesMeta">正在统计…</div>
+      </div>
+      <div class="stat-card reveal" style="--d:2">
+        <div class="stat-label"><span data-icon="briefcase"></span>岗位数</div>
+        <div class="stat-value" id="statJobs">—</div>
+        <div class="stat-meta" id="statJobsMeta">正在统计…</div>
+      </div>
+      <div class="stat-card reveal" style="--d:3">
+        <div class="stat-label"><span data-icon="sparkles"></span>分析次数</div>
+        <div class="stat-value" id="statAnalyses">—</div>
+        <div class="stat-meta" id="statAnalysesMeta">正在统计…</div>
+      </div>
+      <div class="stat-card reveal" style="--d:4;--accent:var(--amber-500)">
+        <div class="stat-label"><span data-icon="target"></span>平均匹配度</div>
+        <div class="stat-value"><span id="statAvg">—</span><small>分</small></div>
+        <div class="stat-meta" id="statAvgMeta">正在统计…</div>
+      </div>
+    </div>
+
+    <div class="grid grid-sidebar mt-24">
+      <section class="card reveal" style="--d:5">
+        <div class="card-head">
+          <div>
+            <div class="card-title">最近分析</div>
+            <div class="card-sub">按时间倒序，最多显示 5 条</div>
+          </div>
+          <a class="link-btn" href="records.html">全部记录<span data-icon="arrow-right"></span></a>
+        </div>
+        <div class="card-body" style="padding-top:12px">
+          <div id="recentAnalyses">
+            <div class="row"><span class="spinner"></span><span class="faint small">正在加载分析记录…</span></div>
+          </div>
+        </div>
+      </section>
+
+      <div class="stack">
+        <section class="card reveal" style="--d:6">
+          <div class="card-head">
+            <div>
+              <div class="card-title">我的简历</div>
+              <div class="card-sub">最多显示 3 份，点击继续编辑</div>
+            </div>
+            <span class="tag tag-neutral" id="miniResumeCount">—</span>
+          </div>
+          <div class="card-body">
+            <div id="miniResumes">
+              <div class="row"><span class="spinner"></span><span class="faint small">正在加载简历…</span></div>
+            </div>
+          </div>
+          <div class="card-foot">
+            <a class="link-btn" href="resumes.html">管理全部简历<span data-icon="arrow-right"></span></a>
+          </div>
+        </section>
+
+        <section class="card reveal" style="--d:7">
+          <div class="card-head">
+            <div>
+              <div class="card-title">快捷操作</div>
+              <div class="card-sub">从这里开始下一步</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="stack" style="gap:9px">
+              <a class="btn btn-outline btn-block" href="resume-edit.html"><span data-icon="file-plus"></span>新建简历</a>
+              <a class="btn btn-outline btn-block" href="jobs.html"><span data-icon="briefcase"></span>录入岗位</a>
+              <a class="btn btn-primary btn-block" href="analysis.html"><span data-icon="sparkles"></span>发起分析</a>
+            </div>
+            <div class="field-hint mt-12">建议先完善简历与岗位 JD，再进行匹配分析。</div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
+<script src="../mock.js"></script>
+<script src="../store.js"></script>
+<script src="../api.js"></script>
+<script src="../app.js"></script>
+<script>
+  App.init({ role: 'student', page: 'dashboard' });
+  (function () {
+    const me = App.Auth.current();
+    if (!me || me.role !== 'student') return;
+
+    const $ = (id) => document.getElementById(id);
+    const el = {
+      greet: $('greetTitle'),
+      resumesVal: $('statResumes'),
+      resumesMeta: $('statResumesMeta'),
+      jobsVal: $('statJobs'),
+      jobsMeta: $('statJobsMeta'),
+      analysesVal: $('statAnalyses'),
+      analysesMeta: $('statAnalysesMeta'),
+      avgVal: $('statAvg'),
+      avgMeta: $('statAvgMeta'),
+      recent: $('recentAnalyses'),
+      mini: $('miniResumes'),
+      miniCount: $('miniResumeCount')
+    };
+
+    const hour = new Date().getHours();
+    const greetText = (hour >= 6 && hour <= 11) ? '上午好'
+      : (hour >= 12 && hour <= 17) ? '下午好'
+      : (hour >= 18 && hour <= 22) ? '晚上好'
+      : '夜深了';
+    el.greet.innerHTML = `${greetText}，<span class="accent">${App.esc(me.name || '同学')}</span>`;
+
+    const shortDate = (v) => (v ? String(v).slice(5, 10) : '—');
+    const loadingRow = (text) => `<div class="row"><span class="spinner"></span><span class="faint small">${text}</span></div>`;
+
+    function renderStats(resumes, jobs, analyses, ok) {
+      if (ok.resumes) {
+        el.resumesVal.textContent = String(resumes.length);
+        el.resumesMeta.textContent = resumes.length ? `最近更新 ${shortDate(resumes[0].updatedAt)}` : '还没有简历';
+      } else {
+        el.resumesVal.textContent = '—';
+        el.resumesMeta.textContent = '加载失败';
+      }
+
+      if (ok.jobs) {
+        const companies = new Set(jobs.map((j) => j.company).filter(Boolean)).size;
+        el.jobsVal.textContent = String(jobs.length);
+        el.jobsMeta.textContent = jobs.length ? `来自 ${companies} 家公司` : '还没有录入岗位';
+      } else {
+        el.jobsVal.textContent = '—';
+        el.jobsMeta.textContent = '加载失败';
+      }
+
+      if (ok.analyses) {
+        const success = analyses.filter((a) => a.status === 'success');
+        const failed = analyses.filter((a) => a.status === 'failed');
+        const scored = success.filter((a) => typeof a.score === 'number');
+        const avg = scored.length ? Math.round(scored.reduce((s, a) => s + a.score, 0) / scored.length) : null;
+        el.analysesVal.textContent = String(analyses.length);
+        el.analysesMeta.textContent = analyses.length ? `成功 ${success.length} / 失败 ${failed.length}` : '还没有分析记录';
+        el.avgVal.textContent = avg === null ? '—' : String(avg);
+        el.avgMeta.textContent = success.length ? `基于 ${success.length} 次成功分析` : '暂无成功分析';
+      } else {
+        el.analysesVal.textContent = '—';
+        el.analysesMeta.textContent = '加载失败';
+        el.avgVal.textContent = '—';
+        el.avgMeta.textContent = '加载失败';
+      }
+    }
+
+    function recentEmpty() {
+      el.recent.innerHTML = `
+        <div class="empty">
+          <div class="empty-icon" data-icon="inbox"></div>
+          <div class="empty-title">还没有分析记录</div>
+          <div class="empty-text">选择一份简历和岗位，发起第一次匹配分析</div>
+          <a class="btn btn-primary" href="analysis.html"><span data-icon="sparkles"></span>发起分析</a>
+        </div>`;
+      App.renderIcons(el.recent);
+    }
+
+    function recentError(message) {
+      el.recent.innerHTML = `
+        <div class="empty">
+          <div class="empty-icon" data-icon="alert-triangle"></div>
+          <div class="empty-title">分析记录加载失败</div>
+          <div class="empty-text">${App.esc(message || '请稍后重试')}</div>
+          <button class="btn btn-outline" type="button" data-retry="1"><span data-icon="refresh-cw"></span>重试</button>
+        </div>`;
+      App.renderIcons(el.recent);
+    }
+
+    function renderRecent(list) {
+      if (!list.length) { recentEmpty(); return; }
+      const rows = list.slice(0, 5).map((a) => {
+        const score = typeof a.score === 'number' ? a.score : null;
+        const scoreCell = score === null
+          ? '<span class="faint">—</span>'
+          : `<div class="row" style="gap:8px"><span class="num strong">${score}</span><div class="meter" style="width:64px"><i style="width:${Math.max(0, Math.min(100, score))}%"></i></div></div>`;
+        return `<tr class="analysis-row" data-task="${App.esc(a.id)}">
+          <td><div class="cell-main truncate" style="max-width:170px">${App.esc(a.resumeName)}</div></td>
+          <td><div class="cell-sub truncate" style="max-width:190px">${App.esc(a.jobTitle)}</div></td>
+          <td>${App.statusTag(a.status)}</td>
+          <td>${App.modeTag(a.mode)}</td>
+          <td>${scoreCell}</td>
+          <td><span class="cell-sub mono">${App.fmtShort(a.createdAt)}</span></td>
+          <td class="actions"><button class="btn btn-ghost btn-sm" type="button" data-view="${App.esc(a.id)}">查看</button></td>
+        </tr>`;
+      }).join('');
+      el.recent.innerHTML = `
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>简历</th><th>岗位</th><th>状态</th><th>方式</th><th>匹配度</th><th>时间</th><th></th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+      App.renderIcons(el.recent);
+    }
+
+    function renderMini(list) {
+      el.miniCount.textContent = `${list.length} 份`;
+      if (!list.length) {
+        el.mini.innerHTML = `
+          <div class="empty" style="padding:28px 10px">
+            <div class="empty-icon" data-icon="file-plus"></div>
+            <div class="empty-title">还没有简历</div>
+            <div class="empty-text">先创建一份，再来看看完整度</div>
+            <a class="btn btn-outline btn-sm" href="resume-edit.html"><span data-icon="plus"></span>新建简历</a>
+          </div>`;
+        App.renderIcons(el.mini);
+        return;
+      }
+      const items = list.slice(0, 3).map((r) => {
+        const pct = Math.max(0, Math.min(100, Number(r.completeness) || 0));
+        return `<a class="list-item mini-resume" style="color:inherit" href="resume-edit.html?id=${encodeURIComponent(r.id)}">
+          <div class="list-item-main" style="min-width:0">
+            <div class="list-item-title"><span class="truncate">${App.esc(r.name)}</span></div>
+            <div class="list-item-meta truncate">${App.esc(r.target)} · v${r.versionCount || 1} 版本</div>
+            <div class="row mt-8" style="gap:8px">
+              <div class="meter" style="flex:1"><i style="width:${pct}%"></i></div>
+              <span class="small faint num">${pct}%</span>
+            </div>
+          </div>
+          <span class="faint" data-icon="chevron-right"></span>
+        </a>`;
+      }).join('');
+      el.mini.innerHTML = `<div class="list">${items}</div>`;
+      App.renderIcons(el.mini);
+    }
+
+    function miniError(message) {
+      el.miniCount.textContent = '—';
+      el.mini.innerHTML = `
+        <div class="empty" style="padding:26px 10px">
+          <div class="empty-icon" data-icon="alert-triangle"></div>
+          <div class="empty-title">简历加载失败</div>
+          <div class="empty-text">${App.esc(message || '请稍后重试')}</div>
+          <button class="btn btn-outline btn-sm" type="button" data-retry="1"><span data-icon="refresh-cw"></span>重试</button>
+        </div>`;
+      App.renderIcons(el.mini);
+    }
+
+    let loadingData = false;
+    async function load() {
+      if (loadingData) return;
+      loadingData = true;
+      el.recent.innerHTML = loadingRow('正在加载分析记录…');
+      el.mini.innerHTML = loadingRow('正在加载简历…');
+      try {
+        const [resumeRes, jobRes, analysisRes] = await Promise.all([
+          Api.Resume.list(),
+          Api.Job.list(),
+          Api.Analysis.list()
+        ]);
+        const resumes = resumeRes.code === 0 ? resumeRes.data : [];
+        const jobs = jobRes.code === 0 ? jobRes.data : [];
+        const analyses = analysisRes.code === 0 ? analysisRes.data : [];
+
+        renderStats(resumes, jobs, analyses, {
+          resumes: resumeRes.code === 0,
+          jobs: jobRes.code === 0,
+          analyses: analysisRes.code === 0
+        });
+
+        if (resumeRes.code === 0) renderMini(resumes); else miniError(resumeRes.message);
+        if (analysisRes.code === 0) renderRecent(analyses); else recentError(analysisRes.message);
+
+        const msgs = [...new Set([resumeRes, jobRes, analysisRes]
+          .filter((r) => r.code !== 0)
+          .map((r) => r.message)
+          .filter(Boolean))];
+        msgs.forEach((m) => App.toast(m, 'error'));
+      } catch (err) {
+        renderStats([], [], [], { resumes: false, jobs: false, analyses: false });
+        miniError('请检查浏览器存储后重试');
+        recentError('请检查浏览器存储后重试');
+        App.toast('数据加载失败，请重试', 'error');
+      } finally {
+        loadingData = false;
+      }
+    }
+
+    el.recent.addEventListener('click', (e) => {
+      if (e.target.closest('[data-retry]')) { load(); return; }
+      const viewBtn = e.target.closest('[data-view]');
+      const row = e.target.closest('tr[data-task]');
+      const id = viewBtn ? viewBtn.dataset.view : (row ? row.dataset.task : null);
+      if (id) location.href = `analysis.html?task=${encodeURIComponent(id)}`;
+    });
+
+    el.mini.addEventListener('click', (e) => {
+      if (e.target.closest('[data-retry]')) load();
+    });
+
+    load();
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+# ============================================================
+# AI 模式配置（Spring Profile: ai）
+# 启动示例：
+#   AI_API_KEY=<your-key> mvn spring-boot:run \
+#     -Dspring-boot.run.arguments="--server.port=8080 --spring.profiles.active=ai"
+# 密钥只从环境变量读取，禁止写入本文件或代码仓库。
+# ============================================================
+ai:
+  enabled: true
+  endpoint: ${AI_ENDPOINT:http://10.50.79.225:7864/v1}
+  api-key: ${AI_API_KEY:}
+  model: ${AI_MODEL:cn:deepseek-v4.1-flash}
+  timeout-seconds: ${AI_TIMEOUT_SECONDS:30}
+  # 扫描件 OCR：需多模态模型，与分析模型分开配置，切换分析模型不影响识别
+  ocr-enabled: ${AI_OCR_ENABLED:true}
+  ocr-model: ${AI_OCR_MODEL:global:deepseek-v4.1-flash}
+  ocr-max-pages: ${AI_OCR_MAX_PAGES:3}
+  ocr-dpi: ${AI_OCR_DPI:150}

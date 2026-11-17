@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>版本管理 · 简历工坊</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+  .resume-select { width: 280px; max-width: 100%; }
+  .sidebar-sticky { position: sticky; top: 22px; }
+  .version-no { font-family: var(--font-display); font-size: 20px; font-weight: 700; line-height: 1; color: var(--pine-700); }
+  .timeline-main { flex: 1; min-width: 0; }
+  .diff-block + .diff-block { margin-top: 20px; }
+  @media (max-width: 1100px) { .sidebar-sticky { position: static; } }
+</style>
+</head>
+<body data-page="versions">
+<aside class="app-nav">
+  <div class="brand">
+    <div class="brand-mark">简</div>
+    <div class="brand-text"><strong>简历工坊</strong><span>AI RESUME STUDIO</span></div>
+  </div>
+  <div class="nav-group-label">学生工作区</div>
+  <nav class="nav-list" aria-label="学生端导航">
+    <a class="nav-item" data-nav="dashboard" href="dashboard.html"><span class="nav-ic" data-icon="layout-dashboard"></span><span>工作台</span></a>
+    <a class="nav-item" data-nav="resumes" href="resumes.html"><span class="nav-ic" data-icon="file-text"></span><span>我的简历</span></a>
+    <a class="nav-item" data-nav="jobs" href="jobs.html"><span class="nav-ic" data-icon="briefcase"></span><span>岗位管理</span></a>
+    <a class="nav-item" data-nav="analysis" href="analysis.html"><span class="nav-ic" data-icon="sparkles"></span><span>简历分析</span></a>
+    <a class="nav-item" data-nav="records" href="records.html"><span class="nav-ic" data-icon="history"></span><span>分析记录</span></a>
+    <a class="nav-item" data-nav="versions" href="versions.html"><span class="nav-ic" data-icon="git-compare"></span><span>版本管理</span></a>
+    <a class="nav-item" data-nav="compare" href="compare.html"><span class="nav-ic" data-icon="target"></span><span>简历对比</span></a>
+    <a class="nav-item" data-nav="api-console" href="api-console.html"><span class="nav-ic" data-icon="server"></span><span>API 控制台</span></a>
+  </nav>
+  <div class="nav-foot">
+    <div class="nav-tip"><span data-icon="shield"></span><span>数据保存在本机服务与数据库</span></div>
+    <div class="user-card">
+      <div class="avatar" id="navAvatar">林</div>
+      <div class="user-meta"><strong id="navUserName">林知远</strong><span>学生账号</span></div>
+      <button class="icon-btn" id="logoutBtn" type="button" title="退出登录" aria-label="退出登录"><span data-icon="log-out"></span></button>
+    </div>
+  </div>
+</aside>
+<main class="app-content">
+  <div class="content-wrap">
+    <div class="breadcrumb reveal">
+      <span>学生工作区</span>
+      <span data-icon="chevron-right"></span>
+      <span>版本管理</span>
+    </div>
+
+    <div class="page-head reveal" style="--d:1">
+      <div>
+        <h1 class="page-title">版本管理</h1>
+        <p class="page-sub">采纳建议会生成新版本，原版本永久保留。</p>
+      </div>
+      <div class="page-actions">
+        <a class="btn btn-primary" href="analysis.html"><span data-icon="sparkles"></span>前往分析</a>
+      </div>
+    </div>
+
+    <div class="toolbar reveal" style="--d:2">
+      <span class="small faint">简历</span>
+      <select class="select resume-select" id="resumeSelect" aria-label="选择简历" disabled></select>
+      <span class="small faint" id="versionMeta">—</span>
+    </div>
+
+    <div id="noResume" class="hidden"></div>
+
+    <div class="grid grid-sidebar hidden" id="versionsGrid">
+      <div class="card reveal" style="--d:3">
+        <div class="card-head">
+          <div>
+            <div class="card-title">版本时间线</div>
+            <div class="card-sub">按时间倒序，最新版本在最上方</div>
+          </div>
+          <span class="tag tag-info" id="versionCountTag">0 个版本</span>
+        </div>
+        <div class="card-body"><div id="timelineBody"></div></div>
+      </div>
+
+      <div class="stack sidebar-sticky">
+        <div class="card reveal" style="--d:4">
+          <div class="card-head">
+            <div>
+              <div class="card-title">版本对比</div>
+              <div class="card-sub">选择两个版本，查看逐项变化</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="grid grid-2">
+              <div class="field">
+                <label class="field-label" for="cmpA">版本 A（旧）</label>
+                <select class="select" id="cmpA" disabled></select>
+              </div>
+              <div class="field">
+                <label class="field-label" for="cmpB">版本 B（新）</label>
+                <select class="select" id="cmpB" disabled></select>
+              </div>
+            </div>
+            <button class="btn btn-primary btn-block mt-16" id="compareBtn" type="button" disabled><span data-icon="git-compare"></span>开始对比</button>
+          </div>
+        </div>
+
+        <div class="card reveal" style="--d:5">
+          <div class="card-head">
+            <div>
+              <div class="card-title">差异明细</div>
+              <div class="card-sub">左侧为 A，右侧为 B</div>
+            </div>
+          </div>
+          <div class="card-body" id="compareResult">
+            <div class="empty">
+              <div class="empty-icon" data-icon="git-compare"></div>
+              <div class="empty-title">选择两个版本开始对比</div>
+              <div class="empty-text">在上方选择版本 A / B，或点击时间线中的「设为 A / B」。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+<script src="../api.js"></script>
+<script src="../app.js"></script>
+<script>
+  App.init({ role: 'student', page: 'versions' });
+
+(function () {
+  const $ = App.qs;
+  const resumeSelect = $('#resumeSelect');
+  const versionMeta = $('#versionMeta');
+  const versionCountTag = $('#versionCountTag');
+  const timelineBody = $('#timelineBody');
+  const compareBtn = $('#compareBtn');
+  const cmpA = $('#cmpA');
+  const cmpB = $('#cmpB');
+  const compareResult = $('#compareResult');
+  const noResume = $('#noResume');
+  const versionsGrid = $('#versionsGrid');
+
+  const state = {
+    resumes: [],
+    resumeId: null,
+    resume: null,
+    versions: [],
+    a: null,
+    b: null,
+    comparing: false,
+    loadSeq: 0
+  };
+
+  const findVersion = (n) => state.versions.find((v) => v.version === Number(n)) || null;
+
+  function compareEmptyHTML() {
+    return `
+      <div class="empty">
+        <div class="empty-icon" data-icon="git-compare"></div>
+        <div class="empty-title">选择两个版本开始对比</div>
+        <div class="empty-text">在上方选择版本 A / B，或点击时间线中的「设为 A / B」。</div>
+      </div>`;
+  }
+
+  function resetCompareResult() {
+    compareResult.innerHTML = compareEmptyHTML();
+    App.renderIcons(compareResult);
+  }
+
+  function showNoResume(icon, title, text, actionHtml) {
+    noResume.innerHTML = `
+      <div class="card">
+        <div class="card-body">
+          <div class="empty">
+            <div class="empty-icon" data-icon="${icon}"></div>
+            <div class="empty-title">${title}</div>
+            <div class="empty-text">${text}</div>
+            ${actionHtml || ''}
+          </div>
+        </div>
+      </div>`;
+    noResume.classList.remove('hidden');
+    versionsGrid.classList.add('hidden');
+    App.renderIcons(noResume);
+  }
+
+  function timelineSkeleton() {
+    timelineBody.innerHTML = `
+      <div class="timeline">
+        ${Array.from({ length: 3 }).map(() => `
+          <div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <div class="timeline-main">
+              <div class="sk sk-line w60"></div>
+              <div class="sk sk-line w80"></div>
+            </div>
+          </div>`).join('')}
+      </div>`;
+  }
+
+  function timelineHTML() {
+    if (!state.versions.length) {
+      return `
+        <div class="empty">
+          <div class="empty-icon" data-icon="history"></div>
+          <div class="empty-title">还没有版本记录</div>
+          <div class="empty-text">采纳分析建议后会生成第一个新版本。</div>
+        </div>`;
+    }
+    const latest = state.versions[0];
+    return `
+      <div class="timeline">
+        ${state.versions.map((v) => {
+          const isLatest = latest && v.version === latest.version;
+          const isA = state.a !== null && Number(state.a) === v.version;
+          const isB = state.b !== null && Number(state.b) === v.version;
+          return `
+            <div class="timeline-item">
+              <div class="timeline-dot done"></div>
+              <div class="timeline-main">
+                <div class="row-between wrap">
+                  <div class="row wrap">
+                    <span class="version-no">v${v.version}</span>
+                    ${isLatest ? '<span class="tag tag-success">当前</span>' : ''}
+                    ${isA ? '<span class="tag tag-info">对比 A</span>' : ''}
+                    ${isB ? '<span class="tag tag-warn">对比 B</span>' : ''}
+                  </div>
+                  <div class="row wrap">
+                    <button class="btn btn-ghost btn-sm" type="button" data-act="view" data-v="${v.version}"><span data-icon="eye"></span>查看快照</button>
+                    <button class="btn ${isA ? 'btn-primary' : 'btn-outline'} btn-sm" type="button" data-act="set-a" data-v="${v.version}">设为 A</button>
+                    <button class="btn ${isB ? 'btn-primary' : 'btn-outline'} btn-sm" type="button" data-act="set-b" data-v="${v.version}">设为 B</button>
+                  </div>
+                </div>
+                <div class="small strong mt-8">${App.esc(v.note)}</div>
+                <div class="small faint mt-8">${App.esc(v.createdAt)}${v.sourceTask ? ` · 来源任务：${App.esc(v.sourceTask)}` : ' · 手动创建'}</div>
+              </div>
+            </div>`;
+        }).join('')}
+      </div>`;
+  }
+
+  function renderTimeline() {
+    timelineBody.innerHTML = timelineHTML();
+    App.renderIcons(timelineBody);
+  }
+
+  function updateCompareBtn() {
+    compareBtn.disabled = state.comparing || !(state.a !== null && state.b !== null);
+  }
+
+  function syncSelects() {
+    const options = state.versions
+      .map((v) => `<option value="${v.version}">v${v.version} · ${App.esc(v.note)}</option>`)
+      .join('');
+    cmpA.innerHTML = `<option value="">请选择版本</option>${options}`;
+    cmpB.innerHTML = `<option value="">请选择版本</option>${options}`;
+    cmpA.value = state.a !== null ? String(state.a) : '';
+    cmpB.value = state.b !== null ? String(state.b) : '';
+    cmpA.disabled = !state.versions.length;
+    cmpB.disabled = !state.versions.length;
+    updateCompareBtn();
+  }
+
+  /* ---------------- 快照 ---------------- */
+  function openSnapshot(v) {
+    const snap = v.snapshot || {};
+    const skills = snap.skills || [];
+    const projects = snap.projects || [];
+    const m = App.modal({
+      title: `版本快照 · v${v.version}`,
+      sub: `${v.createdAt} · ${App.esc(v.note)}`,
+      wide: true,
+      body: `
+        <div class="small strong">个人简介</div>
+        <p class="small muted mt-8" style="line-height:1.75">${snap.summary ? App.esc(snap.summary) : '—'}</p>
+        <div class="divider"></div>
+        <div class="small strong">技能清单</div>
+        ${skills.length
+          ? `<div class="chips mt-8">${skills.map((s) => `<span class="chip">${App.esc(s)}</span>`).join('')}</div>`
+          : '<div class="small faint mt-8">—</div>'}
+        <div class="divider"></div>
+        <div class="small strong">项目经历</div>
+        ${projects.length
+          ? `<div class="list mt-8">${projects.map((p) => `
+              <div class="list-item">
+                <div class="list-item-main">
+                  <div class="list-item-title">${App.esc(p.title)}</div>
+                  <div class="small muted mt-8">${App.esc(p.desc)}</div>
+                </div>
+              </div>`).join('')}</div>`
+          : '<div class="small faint mt-8">—</div>'}
+      `,
+      footer: '<button class="btn btn-outline" type="button" data-act="close">关闭</button>'
+    });
+    m.el.querySelector('[data-act="close"]').addEventListener('click', m.close);
+  }
+
+  /* ---------------- 对比渲染 ---------------- */
+  function summaryBlock(a, b) {
+    const at = a.snapshot.summary || '';
+    const bt = b.snapshot.summary || '';
+    const same = at === bt;
+    return `
+      <div class="diff-block">
+        <div class="row-between wrap">
+          <div class="small strong">个人简介</div>
+          <span class="tag ${same ? 'tag-neutral' : 'tag-warn'}">${same ? '无变化' : '有修改'}</span>
+        </div>
+        <div class="diff-grid mt-8">
+          <div class="diff-col">
+            <div class="diff-head">v${a.version}</div>
+            <div class="diff-row ${same ? 'diff-same' : 'diff-del'}">${at ? App.esc(at) : '<span class="faint">未填写</span>'}</div>
+          </div>
+          <div class="diff-col">
+            <div class="diff-head">v${b.version}</div>
+            <div class="diff-row ${same ? 'diff-same' : 'diff-add'}">${bt ? App.esc(bt) : '<span class="faint">未填写</span>'}</div>
+          </div>
+        </div>
+        ${same ? '<div class="small faint mt-8">无变化</div>' : ''}
+      </div>`;
+  }
+
+  function skillsBlock(a, b) {
+    const av = a.snapshot.skills || [];
+    const bv = b.snapshot.skills || [];
+    const added = bv.filter((s) => !av.includes(s));
+    const removed = av.filter((s) => !bv.includes(s));
+    const same = !added.length && !removed.length;
+    const colA = av.length
+      ? av.map((s) => `<span class="chip ${removed.includes(s) ? 'chip--missing' : ''}">${removed.includes(s) ? '<span data-icon="x"></span>' : ''}${App.esc(s)}</span>`).join('')
+      : '<span class="small faint">无技能信息</span>';
+    const colB = bv.length
+      ? bv.map((s) => `<span class="chip ${added.includes(s) ? 'chip--hit' : ''}">${added.includes(s) ? '<span data-icon="check"></span>' : ''}${App.esc(s)}</span>`).join('')
+      : '<span class="small faint">无技能信息</span>';
+    return `
+      <div class="diff-block">
+        <div class="row-between wrap">
+          <div class="small strong">技能清单</div>
+          <div class="row wrap">
+            ${added.length ? `<span class="tag tag-success">新增 ${added.length}</span>` : ''}
+            ${removed.length ? `<span class="tag tag-danger">移除 ${removed.length}</span>` : ''}
+            ${same ? '<span class="tag tag-neutral">无变化</span>' : ''}
+          </div>
+        </div>
+        <div class="diff-grid mt-8">
+          <div class="diff-col">
+            <div class="diff-head">v${a.version}</div>
+            <div class="diff-row"><div class="chips">${colA}</div></div>
+          </div>
+          <div class="diff-col">
+            <div class="diff-head">v${b.version}</div>
+            <div class="diff-row"><div class="chips">${colB}</div></div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function projectsBlock(a, b) {
+    const ap = a.snapshot.projects || [];
+    const bp = b.snapshot.projects || [];
+    const changed = ap.length !== bp.length || ap.some((p) => {
+      const other = bp.find((x) => x.title === p.title);
+      return !other || other.desc !== p.desc;
+    });
+    const aRows = ap.length
+      ? ap.map((p) => {
+          const other = bp.find((x) => x.title === p.title);
+          const same = other && other.desc === p.desc;
+          return `<div class="diff-row ${same ? 'diff-same' : 'diff-del'}"><strong>${App.esc(p.title)}</strong><br>${App.esc(p.desc)}</div>`;
+        }).join('')
+      : '<div class="diff-row diff-same"><span class="small faint">无项目经历</span></div>';
+    const bRows = bp.length
+      ? bp.map((p) => {
+          const other = ap.find((x) => x.title === p.title);
+          const same = other && other.desc === p.desc;
+          return `<div class="diff-row ${same ? 'diff-same' : 'diff-add'}"><strong>${App.esc(p.title)}</strong><br>${App.esc(p.desc)}</div>`;
+        }).join('')
+      : '<div class="diff-row diff-same"><span class="small faint">无项目经历</span></div>';
+    return `
+      <div class="diff-block">
+        <div class="row-between wrap">
+          <div class="small strong">项目经历</div>
+          <span class="tag ${changed ? 'tag-warn' : 'tag-neutral'}">${changed ? '有差异' : '无变化'}</span>
+        </div>
+        <div class="diff-grid mt-8">
+          <div class="diff-col"><div class="diff-head">v${a.version}</div>${aRows}</div>
+          <div class="diff-col"><div class="diff-head">v${b.version}</div>${bRows}</div>
+        </div>
+        ${changed ? '' : '<div class="small faint mt-8">无变化</div>'}
+      </div>`;
+  }
+
+  function renderCompare(a, b) {
+    compareResult.innerHTML = summaryBlock(a, b) + skillsBlock(a, b) + projectsBlock(a, b);
+    App.renderIcons(compareResult);
+  }
+
+  /* ---------------- 数据加载 ---------------- */
+  async function loadVersions() {
+    const my = ++state.loadSeq;
+    versionsGrid.classList.remove('hidden');
+    noResume.classList.add('hidden');
+    state.a = null;
+    state.b = null;
+    versionMeta.textContent = '加载中…';
+    versionCountTag.textContent = '—';
+    cmpA.disabled = true;
+    cmpB.disabled = true;
+    compareBtn.disabled = true;
+    timelineSkeleton();
+    resetCompareResult();
+
+    const res = await Api.Resume.listVersions(state.resumeId);
+    if (my !== state.loadSeq) return;
+    if (res.code !== 0) {
+      versionMeta.textContent = '—';
+      versionCountTag.textContent = '—';
+      timelineBody.innerHTML = `
+        <div class="empty">
+          <div class="empty-icon" data-icon="alert-triangle"></div>
+          <div class="empty-title">版本加载失败</div>
+          <div class="empty-text">${App.esc(res.message)}</div>
+          <button class="btn btn-outline btn-sm" type="button" data-act="reload"><span data-icon="refresh-cw"></span>重新加载</button>
+        </div>`;
+      App.renderIcons(timelineBody);
+      App.toast(res.message, 'error');
+      return;
+    }
+
+    state.resume = res.data.resume;
+    state.versions = res.data.versions || [];
+    const latest = state.versions[0];
+    versionCountTag.textContent = `${state.versions.length} 个版本`;
+    versionMeta.textContent = latest
+      ? `${state.versions.length} 个版本 · 最近更新 ${latest.createdAt}`
+      : '暂无版本记录';
+
+    if (state.versions.length >= 2) {
+      state.a = state.versions[1].version;
+      state.b = state.versions[0].version;
+    } else if (state.versions.length === 1) {
+      state.a = null;
+      state.b = state.versions[0].version;
+    }
+
+    renderTimeline();
+    syncSelects();
+  }
+
+  async function boot() {
+    resumeSelect.disabled = true;
+    resumeSelect.innerHTML = '<option value="">加载中…</option>';
+    versionMeta.textContent = '加载中…';
+    const res = await Api.Resume.list();
+    if (res.code !== 0) {
+      resumeSelect.innerHTML = '<option value="">—</option>';
+      versionMeta.textContent = '—';
+      showNoResume('alert-triangle', '简历加载失败', App.esc(res.message),
+        '<button class="btn btn-outline btn-sm" type="button" data-act="reload-page"><span data-icon="refresh-cw"></span>重新加载</button>');
+      App.toast(res.message, 'error');
+      return;
+    }
+    state.resumes = res.data;
+    if (!state.resumes.length) {
+      resumeSelect.innerHTML = '<option value="">暂无简历</option>';
+      versionMeta.textContent = '—';
+      showNoResume('file-text', '还没有简历', '先创建一份简历，采纳建议后即可沉淀版本',
+        '<a class="btn btn-outline btn-sm" href="resumes.html">前往我的简历</a>');
+      return;
+    }
+
+    resumeSelect.innerHTML = state.resumes
+      .map((r) => `<option value="${r.id}">${App.esc(r.name)}（v${r.version || 1}）</option>`)
+      .join('');
+    const param = App.param('resumeId');
+    state.resumeId = param && state.resumes.some((r) => r.id === param) ? param : state.resumes[0].id;
+    resumeSelect.value = state.resumeId;
+    resumeSelect.disabled = false;
+    noResume.classList.add('hidden');
+    await loadVersions();
+  }
+
+  /* ---------------- 对比 ---------------- */
+  async function runCompare() {
+    if (state.comparing) return;
+    if (state.a === null || state.b === null) {
+      App.toast('请选择版本 A 与版本 B', 'error');
+      return;
+    }
+    if (Number(state.a) === Number(state.b)) {
+      App.toast('请选择两个不同的版本', 'error');
+      return;
+    }
+    state.comparing = true;
+    updateCompareBtn();
+    compareBtn.innerHTML = '<span class="spinner spinner--light"></span> 对比中';
+    compareResult.innerHTML = `
+      <div class="empty">
+        <span class="spinner"></span>
+        <div class="empty-text mt-8">正在对比版本…</div>
+      </div>`;
+    const res = await Api.Version.compare(state.resumeId, state.a, state.b);
+    state.comparing = false;
+    compareBtn.innerHTML = '<span data-icon="git-compare"></span>开始对比';
+    App.renderIcons(compareBtn);
+    updateCompareBtn();
+    if (res.code !== 0) {
+      compareResult.innerHTML = `
+        <div class="empty">
+          <div class="empty-icon" data-icon="alert-triangle"></div>
+          <div class="empty-title">对比失败</div>
+          <div class="empty-text">${App.esc(res.message)}</div>
+        </div>`;
+      App.renderIcons(compareResult);
+      App.toast(res.message, 'error');
+      return;
+    }
+    renderCompare(res.data.a, res.data.b);
+  }
+
+  /* ---------------- 事件绑定 ---------------- */
+  resumeSelect.addEventListener('change', () => {
+    state.resumeId = resumeSelect.value;
+    try {
+      const url = new URL(location.href);
+      url.searchParams.set('resumeId', state.resumeId);
+      history.replaceState(null, '', url);
+    } catch (e) { /* file:// 下可能不支持，可忽略 */ }
+    loadVersions();
+  });
+
+  cmpA.addEventListener('change', () => {
+    state.a = cmpA.value ? Number(cmpA.value) : null;
+    renderTimeline();
+    updateCompareBtn();
+    resetCompareResult();
+  });
+
+  cmpB.addEventListener('change', () => {
+    state.b = cmpB.value ? Number(cmpB.value) : null;
+    renderTimeline();
+    updateCompareBtn();
+    resetCompareResult();
+  });
+
+  compareBtn.addEventListener('click', runCompare);
+
+  timelineBody.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-act]');
+    if (!btn) return;
+    const act = btn.dataset.act;
+    if (act === 'reload') {
+      loadVersions();
+      return;
+    }
+    const version = Number(btn.dataset.v);
+    if (act === 'view') {
+      const v = findVersion(version);
+      if (v) openSnapshot(v);
+    } else if (act === 'set-a') {
+      if (state.b !== null && Number(state.b) === version) state.b = state.a;
+      state.a = version;
+      renderTimeline();
+      syncSelects();
+      resetCompareResult();
+      App.toast(`已设为对比 A · v${version}`, 'info');
+    } else if (act === 'set-b') {
+      if (state.a !== null && Number(state.a) === version) state.a = state.b;
+      state.b = version;
+      renderTimeline();
+      syncSelects();
+      resetCompareResult();
+      App.toast(`已设为对比 B · v${version}`, 'info');
+    }
+  });
+
+  noResume.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-act="reload-page"]');
+    if (btn) boot();
+  });
+
+  boot();
+})();
+</script>
+</body>
+</html>

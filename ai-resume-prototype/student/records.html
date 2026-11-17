@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>分析记录 · 简历工坊</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body data-page="records">
+<aside class="app-nav">
+  <div class="brand">
+    <div class="brand-mark">简</div>
+    <div class="brand-text"><strong>简历工坊</strong><span>AI RESUME STUDIO</span></div>
+  </div>
+  <div class="nav-group-label">学生工作区</div>
+  <nav class="nav-list" aria-label="学生端导航">
+    <a class="nav-item" data-nav="dashboard" href="dashboard.html"><span class="nav-ic" data-icon="layout-dashboard"></span><span>工作台</span></a>
+    <a class="nav-item" data-nav="resumes" href="resumes.html"><span class="nav-ic" data-icon="file-text"></span><span>我的简历</span></a>
+    <a class="nav-item" data-nav="jobs" href="jobs.html"><span class="nav-ic" data-icon="briefcase"></span><span>岗位管理</span></a>
+    <a class="nav-item" data-nav="analysis" href="analysis.html"><span class="nav-ic" data-icon="sparkles"></span><span>简历分析</span></a>
+    <a class="nav-item" data-nav="records" href="records.html"><span class="nav-ic" data-icon="history"></span><span>分析记录</span></a>
+    <a class="nav-item" data-nav="versions" href="versions.html"><span class="nav-ic" data-icon="git-compare"></span><span>版本管理</span></a>
+  </nav>
+  <div class="nav-foot">
+    <div class="nav-tip"><span data-icon="shield"></span><span>数据仅保存在本机浏览器</span></div>
+    <div class="user-card">
+      <div class="avatar" id="navAvatar">林</div>
+      <div class="user-meta"><strong id="navUserName">林知远</strong><span>学生账号</span></div>
+      <button class="icon-btn" id="logoutBtn" type="button" title="退出登录" aria-label="退出登录"><span data-icon="log-out"></span></button>
+    </div>
+  </div>
+</aside>
+<main class="app-content">
+  <div class="content-wrap">
+    <div class="breadcrumb reveal">
+      <span>学生工作区</span>
+      <span data-icon="chevron-right"></span>
+      <span>分析记录</span>
+    </div>
+
+    <div class="page-head reveal" style="--d:1">
+      <div>
+        <h1 class="page-title">分析记录</h1>
+        <p class="page-sub">全部分析任务与结果，可随时回看。</p>
+      </div>
+      <div class="page-actions">
+        <a class="btn btn-primary" href="analysis.html"><span data-icon="sparkles"></span>发起新分析</a>
+      </div>
+    </div>
+
+    <div class="toolbar reveal" style="--d:2">
+      <div class="segmented" id="statusFilter" role="group" aria-label="按状态筛选">
+        <button class="active" type="button" data-status="">全部</button>
+        <button type="button" data-status="success">成功</button>
+        <button type="button" data-status="failed">失败</button>
+        <button type="button" data-status="analyzing">分析中</button>
+      </div>
+      <div class="search-box">
+        <span data-icon="search"></span>
+        <input class="input" id="recordSearch" type="search" placeholder="搜索简历或岗位关键词" autocomplete="off">
+      </div>
+      <span class="small faint" id="recordTotal">共 0 条</span>
+    </div>
+
+    <div class="card reveal" style="--d:3">
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th>简历</th>
+              <th>岗位</th>
+              <th>状态</th>
+              <th>方式</th>
+              <th>得分</th>
+              <th>耗时</th>
+              <th>创建时间</th>
+              <th style="text-align:right">操作</th>
+            </tr>
+          </thead>
+          <tbody id="recordsBody"></tbody>
+        </table>
+      </div>
+      <div class="card-foot" id="recordsPager"></div>
+    </div>
+  </div>
+</main>
+<script src="../mock.js"></script>
+<script src="../store.js"></script>
+<script src="../api.js"></script>
+<script src="../app.js"></script>
+<script>
+  App.init({ role: 'student', page: 'records' });
+
+(function () {
+  const $ = App.qs;
+  const tbody = $('#recordsBody');
+  const pager = $('#recordsPager');
+  const totalEl = $('#recordTotal');
+  const searchInput = $('#recordSearch');
+  const segmented = $('#statusFilter');
+
+  const PAGE_SIZE = 8;
+  let rows = [];
+  let page = 1;
+  let status = '';
+  let reqSeq = 0;
+  let searchTimer = null;
+
+  function renderSkeleton() {
+    tbody.innerHTML = Array.from({ length: 5 }).map(() => `
+      <tr>
+        <td><div class="sk sk-line w80"></div></td>
+        <td><div class="sk sk-line w60"></div></td>
+        <td><div class="sk sk-line w40"></div></td>
+        <td><div class="sk sk-line w40"></div></td>
+        <td><div class="sk sk-line w40"></div></td>
+        <td><div class="sk sk-line w40"></div></td>
+        <td><div class="sk sk-line w80"></div></td>
+        <td><div class="sk sk-line w60"></div></td>
+      </tr>`).join('');
+    pager.innerHTML = '';
+  }
+
+  function emptyRow(icon, title, text, actionHtml) {
+    return `
+      <tr>
+        <td colspan="8">
+          <div class="empty">
+            <div class="empty-icon" data-icon="${icon}"></div>
+            <div class="empty-title">${title}</div>
+            <div class="empty-text">${text}</div>
+            ${actionHtml || ''}
+          </div>
+        </td>
+      </tr>`;
+  }
+
+  function rowHTML(a) {
+    const parts = String(a.jobTitle || '').split(' · ');
+    const jobMain = parts[0] || '—';
+    const jobSub = parts.slice(1).join(' · ') || '—';
+    const score = a.score == null
+      ? '<span class="faint">—</span>'
+      : `<span class="num strong">${a.score}</span><span class="small faint"> 分</span>`;
+    const duration = a.status === 'analyzing' ? '<span class="small faint">进行中</span>' : `${a.duration || 0} 秒`;
+    return `
+      <tr>
+        <td>
+          <div class="cell-main">${App.esc(a.resumeName)}</div>
+          <div class="cell-sub mono">${App.esc(a.id)}</div>
+        </td>
+        <td>
+          <div class="cell-main">${App.esc(jobMain)}</div>
+          <div class="cell-sub">${App.esc(jobSub)}</div>
+        </td>
+        <td>${App.statusTag(a.status)}</td>
+        <td>${App.modeTag(a.mode)}</td>
+        <td>${score}</td>
+        <td><span class="num small">${duration}</span></td>
+        <td><span class="num small">${App.esc(a.createdAt)}</span></td>
+        <td>
+          <div class="actions">
+            <a class="btn btn-outline btn-sm" href="analysis.html?task=${encodeURIComponent(a.id)}"><span data-icon="eye"></span>查看结果</a>
+            ${a.status === 'failed' ? `<a class="btn btn-primary btn-sm" href="analysis.html?task=${encodeURIComponent(a.id)}"><span data-icon="refresh-cw"></span>重试</a>` : ''}
+          </div>
+        </td>
+      </tr>`;
+  }
+
+  function renderPager(pages) {
+    pager.innerHTML = `
+      <div class="row-between wrap">
+        <span class="small faint">共 ${rows.length} 条 · 第 ${page} / ${pages} 页</span>
+        <div class="row">
+          <button class="btn btn-outline btn-sm" type="button" data-act="prev" ${page <= 1 ? 'disabled' : ''}>上一页</button>
+          <button class="btn btn-outline btn-sm" type="button" data-act="next" ${page >= pages ? 'disabled' : ''}>下一页</button>
+        </div>
+      </div>`;
+  }
+
+  function render() {
+    totalEl.textContent = `共 ${rows.length} 条`;
+    const keyword = searchInput.value.trim();
+    if (!rows.length) {
+      pager.innerHTML = '';
+      if (status || keyword) {
+        tbody.innerHTML = emptyRow('inbox', '没有符合条件的记录', '调整筛选条件或搜索关键词后再试',
+          '<button class="btn btn-outline btn-sm" type="button" data-act="clear">清除筛选</button>');
+      } else {
+        tbody.innerHTML = emptyRow('history', '还没有分析记录', '选择简历与目标岗位，发起第一次简历分析',
+          '<a class="btn btn-primary btn-sm" href="analysis.html"><span data-icon="sparkles"></span>发起新分析</a>');
+      }
+      App.renderIcons(tbody);
+      return;
+    }
+
+    const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+    if (page > pages) page = pages;
+    const start = (page - 1) * PAGE_SIZE;
+    tbody.innerHTML = rows.slice(start, start + PAGE_SIZE).map(rowHTML).join('');
+    App.renderIcons(tbody);
+    renderPager(pages);
+  }
+
+  async function load() {
+    const my = ++reqSeq;
+    const q = searchInput.value.trim();
+    renderSkeleton();
+    const res = await Api.Analysis.list({ status, q });
+    if (my !== reqSeq) return;
+    if (res.code !== 0) {
+      totalEl.textContent = '—';
+      pager.innerHTML = '';
+      tbody.innerHTML = emptyRow('alert-triangle', '记录加载失败', App.esc(res.message),
+        '<button class="btn btn-outline btn-sm" type="button" data-act="retry"><span data-icon="refresh-cw"></span>重新加载</button>');
+      App.renderIcons(tbody);
+      App.toast(res.message, 'error');
+      return;
+    }
+    rows = res.data;
+    page = 1;
+    render();
+  }
+
+  segmented.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-status]');
+    if (!btn) return;
+    App.qsa('button[data-status]', segmented).forEach((b) => b.classList.toggle('active', b === btn));
+    status = btn.dataset.status;
+    page = 1;
+    load();
+  });
+
+  searchInput.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      page = 1;
+      load();
+    }, 250);
+  });
+
+  pager.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-act]');
+    if (!btn) return;
+    const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+    if (btn.dataset.act === 'prev' && page > 1) {
+      page -= 1;
+      render();
+    } else if (btn.dataset.act === 'next' && page < pages) {
+      page += 1;
+      render();
+    }
+  });
+
+  tbody.addEventListener('click', (e) => {
+    const el = e.target.closest('[data-act]');
+    if (!el) return;
+    if (el.dataset.act === 'retry') {
+      load();
+    } else if (el.dataset.act === 'clear') {
+      searchInput.value = '';
+      status = '';
+      page = 1;
+      App.qsa('button[data-status]', segmented).forEach((b) => b.classList.toggle('active', b.dataset.status === ''));
+      load();
+    }
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>

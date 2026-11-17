@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>简历编辑 · 简历工坊</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+  .side-sticky { position: sticky; top: 24px; }
+  .row-card {
+    padding: 14px 15px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+  }
+  .row-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .row-head-title {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    color: var(--ink-sub);
+  }
+  .link-btn[disabled] { opacity: .45; cursor: not-allowed; }
+  .checklist { display: flex; flex-direction: column; gap: 9px; }
+  .check-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    color: var(--ink-faint);
+  }
+  .check-item.ok { color: var(--ink); }
+  .check-item [data-icon] { flex: 0 0 auto; }
+  .check-item [data-icon] svg { width: 14px; height: 14px; }
+  .check-item.ok [data-icon] { color: var(--success); }
+  @media (max-width: 1100px) {
+    .side-sticky { position: static; }
+  }
+</style>
+</head>
+<body data-page="resumes">
+<aside class="app-nav">
+  <div class="brand">
+    <div class="brand-mark">简</div>
+    <div class="brand-text"><strong>简历工坊</strong><span>AI RESUME STUDIO</span></div>
+  </div>
+  <div class="nav-group-label">学生工作区</div>
+  <nav class="nav-list" aria-label="学生端导航">
+    <a class="nav-item" data-nav="dashboard" href="dashboard.html"><span class="nav-ic" data-icon="layout-dashboard"></span><span>工作台</span></a>
+    <a class="nav-item" data-nav="resumes" href="resumes.html"><span class="nav-ic" data-icon="file-text"></span><span>我的简历</span></a>
+    <a class="nav-item" data-nav="jobs" href="jobs.html"><span class="nav-ic" data-icon="briefcase"></span><span>岗位管理</span></a>
+    <a class="nav-item" data-nav="analysis" href="analysis.html"><span class="nav-ic" data-icon="sparkles"></span><span>简历分析</span></a>
+    <a class="nav-item" data-nav="records" href="records.html"><span class="nav-ic" data-icon="history"></span><span>分析记录</span></a>
+    <a class="nav-item" data-nav="versions" href="versions.html"><span class="nav-ic" data-icon="git-compare"></span><span>版本管理</span></a>
+    <a class="nav-item" data-nav="compare" href="compare.html"><span class="nav-ic" data-icon="target"></span><span>简历对比</span></a>
+    <a class="nav-item" data-nav="api-console" href="api-console.html"><span class="nav-ic" data-icon="server"></span><span>API 控制台</span></a>
+  </nav>
+  <div class="nav-foot">
+    <div class="nav-tip"><span data-icon="shield"></span><span>数据保存在本机服务与数据库</span></div>
+    <div class="user-card">
+      <div class="avatar" id="navAvatar">林</div>
+      <div class="user-meta"><strong id="navUserName">林知远</strong><span>学生账号</span></div>
+      <button class="icon-btn" id="logoutBtn" type="button" title="退出登录" aria-label="退出登录"><span data-icon="log-out"></span></button>
+    </div>
+  </div>
+</aside>
+<main class="app-content">
+  <div class="content-wrap">
+    <div class="page-head reveal" style="--d:0">
+      <div>
+        <div class="breadcrumb"><a href="resumes.html">我的简历</a><span data-icon="chevron-right"></span><span>编辑</span></div>
+        <h1 class="page-title" id="editTitle">新建简历</h1>
+        <p class="page-sub">必填项用于生成结构化分析输入。</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-outline" type="button" id="importBtn"><span data-icon="file-plus"></span>从文件导入</button>
+        <input type="file" id="importFile" accept=".pdf,.docx,.doc,.txt,.png,.jpg,.jpeg" hidden>
+        <a class="btn btn-outline" href="resumes.html">取消</a>
+        <button class="btn btn-primary" type="button" id="saveBtn"><span data-icon="check"></span>保存简历</button>
+      </div>
+    </div>
+
+    <div id="sensitiveBox" class="mt-16"></div>
+
+    <div class="card" id="editLoading">
+      <div class="card-body row"><span class="spinner"></span><span class="muted small">正在加载简历…</span></div>
+    </div>
+
+    <div class="grid grid-sidebar hidden" id="editBody">
+      <form class="stack" id="resumeForm" novalidate>
+        <section class="card reveal" style="--d:1">
+          <div class="card-head">
+            <div>
+              <div class="card-title">基本信息</div>
+              <div class="card-sub">用于生成结构化简历与匹配分析</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="form-grid">
+              <div class="field">
+                <label class="field-label" for="resumeName">简历名称<span class="req">*</span></label>
+                <input class="input" id="resumeName" maxlength="50" placeholder="如 Java 后端 · 校招版" autocomplete="off">
+                <div class="field-error">请填写简历名称</div>
+              </div>
+              <div class="field">
+                <label class="field-label" for="fullName">姓名<span class="req">*</span></label>
+                <input class="input" id="fullName" maxlength="20" placeholder="你的姓名" autocomplete="off">
+                <div class="field-error">请填写姓名</div>
+              </div>
+              <div class="field">
+                <label class="field-label" for="jobTarget">求职意向<span class="req">*</span></label>
+                <input class="input" id="jobTarget" maxlength="50" placeholder="如 Java 后端开发实习生" autocomplete="off">
+                <div class="field-error">请填写求职意向</div>
+              </div>
+              <div class="field">
+                <label class="field-label" for="phoneInput">手机</label>
+                <input class="input" id="phoneInput" maxlength="20" placeholder="用于 HR 联系" autocomplete="off">
+              </div>
+              <div class="field">
+                <label class="field-label" for="emailInput">邮箱</label>
+                <input class="input" id="emailInput" maxlength="60" placeholder="name@example.com" autocomplete="off">
+              </div>
+              <div class="field span-2">
+                <label class="field-label" for="summaryInput">个人简介</label>
+                <textarea class="textarea" id="summaryInput" maxlength="300" placeholder="用 2-3 句话说明专业背景、项目经验与求职方向"></textarea>
+                <div class="field-hint">不少于 20 字可提升完整度</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card reveal" style="--d:2">
+          <div class="card-head">
+            <div>
+              <div class="card-title">教育经历<span class="req">*</span></div>
+              <div class="card-sub">至少填写一条，学校与专业为必填</div>
+            </div>
+            <button class="btn btn-outline btn-sm" type="button" id="addEduBtn"><span data-icon="plus"></span>添加一条</button>
+          </div>
+          <div class="card-body">
+            <div class="stack" id="eduList" style="gap:14px"></div>
+          </div>
+        </section>
+
+        <section class="card reveal" style="--d:3">
+          <div class="card-head">
+            <div>
+              <div class="card-title">项目/实习经历<span class="req">*</span></div>
+              <div class="card-sub">至少填写一条，项目名称与描述为必填</div>
+            </div>
+            <button class="btn btn-outline btn-sm" type="button" id="addProjectBtn"><span data-icon="plus"></span>添加一条</button>
+          </div>
+          <div class="card-body">
+            <div class="stack" id="projectList" style="gap:14px"></div>
+          </div>
+        </section>
+
+        <section class="card reveal" style="--d:4">
+          <div class="card-head">
+            <div>
+              <div class="card-title">技能清单</div>
+              <div class="card-sub">逗号分隔，至少 3 项可提升完整度</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="field">
+              <label class="field-label" for="skillsInput">技能关键词</label>
+              <input class="input" id="skillsInput" placeholder="如 Java，Spring Boot，MySQL" autocomplete="off">
+              <div class="field-hint">支持中文逗号「，」与英文逗号「,」</div>
+            </div>
+            <div class="chips mt-16" id="skillPreview"></div>
+          </div>
+        </section>
+      </form>
+
+      <aside class="card reveal side-sticky" style="--d:5">
+        <div class="card-head">
+          <div>
+            <div class="card-title">简历完整度</div>
+            <div class="card-sub">仅作填写参考，不影响保存</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row" style="justify-content:center">
+            <div class="score-ring" id="compRing" style="--p:0">
+              <div class="score-num" id="compScore">0<small>%</small></div>
+            </div>
+          </div>
+          <div class="meter mt-16"><i id="compMeterBar" style="width:0%"></i></div>
+          <div class="row-between mt-8 small">
+            <span class="faint">当前完整度</span>
+            <span class="strong num" id="compValue">0%</span>
+          </div>
+
+          <div class="divider"></div>
+          <div class="row-between">
+            <span class="strong small">检查清单</span>
+            <span class="faint small">实时更新</span>
+          </div>
+          <div class="checklist mt-12" id="checklist"></div>
+
+          <div class="banner banner--info mt-16">
+            <span data-icon="info"></span>
+            <div>完整度只影响提示，不阻止保存；必填项缺失才会阻止保存。</div>
+          </div>
+
+          <button class="btn btn-outline btn-block mt-16" type="button" id="saveAnalyzeBtn"><span data-icon="sparkles"></span>保存并去分析</button>
+          <div class="field-hint mt-8">保存后带着这份简历进入分析页选择岗位。</div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</main>
+
+<template id="eduRowTpl">
+  <div class="row-card">
+    <div class="row-head">
+      <span class="row-head-title">教育经历</span>
+      <button class="link-btn danger" type="button" data-act="remove-edu"><span data-icon="trash-2"></span>删除</button>
+    </div>
+    <div class="form-grid">
+      <div class="field">
+        <label class="field-label">学校<span class="req">*</span></label>
+        <input class="input" data-field="school" placeholder="如 江南大学" autocomplete="off">
+        <div class="field-error">请填写学校名称</div>
+      </div>
+      <div class="field">
+        <label class="field-label">专业<span class="req">*</span></label>
+        <input class="input" data-field="major" placeholder="如 软件工程" autocomplete="off">
+        <div class="field-error">请填写专业</div>
+      </div>
+      <div class="field">
+        <label class="field-label">学历</label>
+        <select class="select" data-field="degree">
+          <option value="本科">本科</option>
+          <option value="硕士">硕士</option>
+          <option value="博士">博士</option>
+          <option value="其他">其他</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="field-label">时间</label>
+        <input class="input" data-field="period" placeholder="如 2023.09 - 2027.06" autocomplete="off">
+      </div>
+      <div class="field">
+        <label class="field-label">GPA</label>
+        <input class="input" data-field="gpa" placeholder="如 3.7 / 4.0" autocomplete="off">
+      </div>
+    </div>
+  </div>
+</template>
+
+<template id="projectRowTpl">
+  <div class="row-card">
+    <div class="row-head">
+      <span class="row-head-title">项目/实习经历</span>
+      <button class="link-btn danger" type="button" data-act="remove-project"><span data-icon="trash-2"></span>删除</button>
+    </div>
+    <div class="form-grid">
+      <div class="field">
+        <label class="field-label">项目名称<span class="req">*</span></label>
+        <input class="input" data-field="title" placeholder="如 校园二手交易平台" autocomplete="off">
+        <div class="field-error">请填写项目名称</div>
+      </div>
+      <div class="field">
+        <label class="field-label">担任角色</label>
+        <input class="input" data-field="role" placeholder="如 后端负责人" autocomplete="off">
+      </div>
+      <div class="field">
+        <label class="field-label">时间</label>
+        <input class="input" data-field="period" placeholder="如 2025.03 - 2025.09" autocomplete="off">
+      </div>
+      <div class="field span-2">
+        <label class="field-label">描述<span class="req">*</span></label>
+        <textarea class="textarea" data-field="desc" placeholder="描述职责、技术方案与结果"></textarea>
+        <div class="field-hint">建议写清背景、职责、技术方案与结果</div>
+        <div class="field-error">请填写项目描述</div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script src="../api.js"></script>
+<script src="../app.js"></script>
+<script>
+  App.init({ role: 'student', page: 'resumes' });
+  (function () {
+    const me = App.Auth.current();
+    if (!me || me.role !== 'student') return;
+
+    const $ = (id) => document.getElementById(id);
+    const form = $('resumeForm');
+    const editTitle = $('editTitle');
+    const editLoading = $('editLoading');
+    const editBody = $('editBody');
+    const saveBtn = $('saveBtn');
+    const saveAnalyzeBtn = $('saveAnalyzeBtn');
+    const importBtn = $('importBtn');
+    const importFile = $('importFile');
+    const resumeName = $('resumeName');
+    const fullName = $('fullName');
+    const jobTarget = $('jobTarget');
+    const phoneInput = $('phoneInput');
+    const emailInput = $('emailInput');
+    const summaryInput = $('summaryInput');
+    const skillsInput = $('skillsInput');
+    const skillPreview = $('skillPreview');
+    const eduList = $('eduList');
+    const projectList = $('projectList');
+    const addEduBtn = $('addEduBtn');
+    const addProjectBtn = $('addProjectBtn');
+    const eduTpl = $('eduRowTpl');
+    const projectTpl = $('projectRowTpl');
+    const compRing = $('compRing');
+    const compScore = $('compScore');
+    const compMeterBar = $('compMeterBar');
+    const compValue = $('compValue');
+    const checklist = $('checklist');
+    const sensitiveBox = $('sensitiveBox');
+
+    let editingId = App.param('id') || '';
+    let saving = false;
+
+    const fieldOf = (row, name) => row.querySelector(`[data-field="${name}"]`);
+    const valueOf = (row, name) => {
+      const control = fieldOf(row, name);
+      return control ? control.value.trim() : '';
+    };
+
+    function refreshRowLabels() {
+      const eduRows = App.qsa('.row-card', eduList);
+      eduRows.forEach((row, index) => {
+        const title = row.querySelector('.row-head-title');
+        if (title) title.textContent = `教育经历 ${index + 1}`;
+        const btn = row.querySelector('[data-act="remove-edu"]');
+        if (btn) {
+          btn.disabled = eduRows.length <= 1;
+          btn.title = btn.disabled ? '至少保留一条教育经历' : '删除这条教育经历';
+        }
+      });
+      const projectRows = App.qsa('.row-card', projectList);
+      projectRows.forEach((row, index) => {
+        const title = row.querySelector('.row-head-title');
+        if (title) title.textContent = `项目/实习经历 ${index + 1}`;
+        const btn = row.querySelector('[data-act="remove-project"]');
+        if (btn) {
+          btn.disabled = projectRows.length <= 1;
+          btn.title = btn.disabled ? '至少保留一条项目经历' : '删除这条项目经历';
+        }
+      });
+    }
+
+    function addEduRow(data = {}, silent = false) {
+      const frag = eduTpl.content.cloneNode(true);
+      const row = frag.querySelector('.row-card');
+      fieldOf(row, 'school').value = data.school || '';
+      fieldOf(row, 'major').value = data.major || '';
+      fieldOf(row, 'degree').value = data.degree || '本科';
+      fieldOf(row, 'period').value = data.period || '';
+      fieldOf(row, 'gpa').value = data.gpa || '';
+      eduList.appendChild(frag);
+      App.renderIcons(eduList);
+      refreshRowLabels();
+      if (!silent) updatePreview();
+    }
+
+    function addProjectRow(data = {}, silent = false) {
+      const frag = projectTpl.content.cloneNode(true);
+      const row = frag.querySelector('.row-card');
+      fieldOf(row, 'title').value = data.title || '';
+      fieldOf(row, 'role').value = data.role || '';
+      fieldOf(row, 'period').value = data.period || '';
+      fieldOf(row, 'desc').value = data.desc || '';
+      projectList.appendChild(frag);
+      App.renderIcons(projectList);
+      refreshRowLabels();
+      if (!silent) updatePreview();
+    }
+
+    function collectEducation() {
+      return App.qsa('.row-card', eduList).map((row) => ({
+        school: valueOf(row, 'school'),
+        major: valueOf(row, 'major'),
+        degree: valueOf(row, 'degree') || '本科',
+        period: valueOf(row, 'period'),
+        gpa: valueOf(row, 'gpa')
+      })).filter((e) => e.school || e.major || e.period || e.gpa);
+    }
+
+    function collectProjects() {
+      return App.qsa('.row-card', projectList).map((row) => ({
+        title: valueOf(row, 'title'),
+        role: valueOf(row, 'role'),
+        period: valueOf(row, 'period'),
+        desc: valueOf(row, 'desc')
+      })).filter((p) => p.title || p.role || p.period || p.desc);
+    }
+
+    function collectSkills() {
+      const raw = skillsInput.value.split(/[,，]/).map((s) => s.trim()).filter(Boolean);
+      return [...new Set(raw)];
+    }
+
+    function collectPayload() {
+      const payload = {
+        name: resumeName.value.trim(),
+        personName: fullName.value.trim(),
+        target: jobTarget.value.trim(),
+        phone: phoneInput.value.trim(),
+        email: emailInput.value.trim(),
+        summary: summaryInput.value.trim(),
+        education: collectEducation(),
+        projects: collectProjects(),
+        skills: collectSkills()
+      };
+      if (editingId) payload.id = editingId;
+      return payload;
+    }
+
+    function calcCompleteness(r) {
+      let s = 0;
+      if (r.name) s += 10;
+      if (r.target) s += 10;
+      if (r.phone) s += 5;
+      if (r.email) s += 5;
+      if ((r.summary || '').length >= 20) s += 15;
+      if ((r.education || []).length) s += 20;
+      if ((r.projects || []).length) s += 25;
+      if ((r.skills || []).length >= 3) s += 15;
+      return Math.min(100, s);
+    }
+
+    function renderSkills(skills) {
+      if (!skills.length) {
+        skillPreview.innerHTML = '<span class="faint small">尚未添加技能，输入后按逗号分隔</span>';
+        return;
+      }
+      skillPreview.innerHTML = skills.map((s) => `<span class="chip">${App.esc(s)}</span>`).join('');
+    }
+
+    function updatePreview() {
+      const payload = collectPayload();
+      const score = calcCompleteness(payload);
+      compRing.style.setProperty('--p', String(score));
+      compScore.innerHTML = `${score}<small>%</small>`;
+      compMeterBar.style.width = `${score}%`;
+      compValue.textContent = `${score}%`;
+
+      const checks = [
+        ['简历名称', !!payload.name],
+        ['求职意向', !!payload.target],
+        ['手机', !!payload.phone],
+        ['邮箱', !!payload.email],
+        ['个人简介 ≥ 20 字', payload.summary.length >= 20],
+        ['教育经历', payload.education.length > 0],
+        ['项目/实习经历', payload.projects.length > 0],
+        ['技能 ≥ 3 项', payload.skills.length >= 3]
+      ];
+      checklist.innerHTML = checks.map(([label, ok]) => `
+        <div class="check-item ${ok ? 'ok' : ''}">
+          <span data-icon="${ok ? 'check' : 'circle'}"></span>
+          <span>${label}</span>
+        </div>`).join('');
+      App.renderIcons(checklist);
+
+      renderSkills(payload.skills);
+    }
+
+    function markInvalid(control, first) {
+      if (!control) return first;
+      const field = control.closest('.field');
+      if (!field) return first;
+      field.classList.add('invalid');
+      return first || field;
+    }
+
+    function validateForm() {
+      App.qsa('.field.invalid', form).forEach((f) => f.classList.remove('invalid'));
+      let firstInvalid = null;
+
+      if (!resumeName.value.trim()) firstInvalid = markInvalid(resumeName, firstInvalid);
+      if (!fullName.value.trim()) firstInvalid = markInvalid(fullName, firstInvalid);
+      if (!jobTarget.value.trim()) firstInvalid = markInvalid(jobTarget, firstInvalid);
+
+      const eduRows = App.qsa('.row-card', eduList);
+      const hasEducation = eduRows.some((row) => valueOf(row, 'school') && valueOf(row, 'major'));
+      if (!hasEducation && eduRows.length) {
+        firstInvalid = markInvalid(fieldOf(eduRows[0], 'school'), firstInvalid);
+        firstInvalid = markInvalid(fieldOf(eduRows[0], 'major'), firstInvalid);
+      }
+
+      const projectRows = App.qsa('.row-card', projectList);
+      const hasProject = projectRows.some((row) => valueOf(row, 'title') && valueOf(row, 'desc'));
+      if (!hasProject && projectRows.length) {
+        firstInvalid = markInvalid(fieldOf(projectRows[0], 'title'), firstInvalid);
+        firstInvalid = markInvalid(fieldOf(projectRows[0], 'desc'), firstInvalid);
+      }
+
+      if (firstInvalid) {
+        firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const control = firstInvalid.querySelector('.input, .textarea, .select');
+        if (control) control.focus({ preventScroll: true });
+        return null;
+      }
+
+      return collectPayload();
+    }
+
+    function setSaving(on) {
+      saveBtn.disabled = on;
+      saveAnalyzeBtn.disabled = on;
+      saveBtn.innerHTML = on
+        ? '<span class="spinner spinner--light"></span>保存中…'
+        : '<span data-icon="check"></span>保存简历';
+      saveAnalyzeBtn.innerHTML = on
+        ? '<span class="spinner"></span>正在保存…'
+        : '<span data-icon="sparkles"></span>保存并去分析';
+      App.renderIcons(saveBtn);
+      App.renderIcons(saveAnalyzeBtn);
+    }
+
+    async function save(goAnalyze) {
+      if (saving) return;
+      const payload = validateForm();
+      if (!payload) {
+        App.toast('请先补全标红的必填项', 'error');
+        return;
+      }
+      const isNew = !editingId;
+      saving = true;
+      setSaving(true);
+      try {
+        const res = await Api.Resume.save(payload);
+        if (res.code !== 0) {
+          App.toast(res.message || '保存失败', 'error');
+          return;
+        }
+        editingId = res.data.id;
+        App.toast('简历已保存', 'success');
+        updatePreview();
+        renderSensitive(res.data.sensitiveWarnings);
+        if (goAnalyze) {
+          location.href = `analysis.html?resume=${encodeURIComponent(editingId)}`;
+          return;
+        }
+        if (isNew) location.href = 'resumes.html';
+      } catch (err) {
+        App.toast('保存失败，请稍后重试', 'error');
+      } finally {
+        saving = false;
+        setSaving(false);
+      }
+    }
+
+    /** 敏感信息提醒（FR-RESUME-03）：仅提示，不阻断保存 */
+    function renderSensitive(list) {
+      const items = list || [];
+      if (!items.length) {
+        sensitiveBox.innerHTML = '';
+        return;
+      }
+      sensitiveBox.innerHTML = `
+        <div class="banner banner--warn">
+          <span data-icon="alert-triangle"></span>
+          <div>
+            <strong>检测到 ${items.length} 处敏感信息，公开投递前建议脱敏</strong>
+            <div class="small mt-8">${items.map((f) =>
+              `${App.esc(f.field)}：${App.esc(f.type)} ${App.esc(f.masked)} — ${App.esc(f.advice)}`).join('<br>')}</div>
+            <div class="small faint mt-8">该提示不影响保存；提醒中仅显示脱敏结果，不回显完整号码。</div>
+          </div>
+        </div>`;
+      App.renderIcons(sensitiveBox);
+    }
+
+    /** 文件导入（FR-RESUME-04）：解析结果先预览，确认后填入表单，不直接保存 */
+    function importRow(label, value) {
+      return `<div class="kv-row"><span class="kv-key">${label}</span><span class="kv-val">${App.esc(value || '未识别')}</span></div>`;
+    }
+
+    function applyImportDraft(d) {
+      if (!resumeName.value.trim()) {
+        const base = String(d.fileName || '导入简历').replace(/\.[^.]+$/, '');
+        resumeName.value = base + ' · 导入';
+      }
+      if (d.personName) fullName.value = d.personName;
+      if (d.target) jobTarget.value = d.target;
+      if (d.phone) phoneInput.value = d.phone;
+      if (d.email) emailInput.value = d.email;
+      if (d.summary) summaryInput.value = d.summary;
+      if ((d.skills || []).length) skillsInput.value = d.skills.join('，');
+      if ((d.projects || []).length) {
+        projectList.innerHTML = '';
+        d.projects.forEach((p) => addProjectRow({
+          title: p.title || '', role: p.role || '', period: p.period || '', desc: p.desc || ''
+        }, true));
+      }
+      refreshRowLabels();
+      updatePreview();
+      App.toast('已填入表单，请核对必填项后保存', 'success');
+      form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function openImportModal(d) {
+      const projects = d.projects || [];
+      const warnings = d.warnings || [];
+      const m = App.modal({
+        title: '导入简历草稿',
+        sub: `${d.fileName || '文件'} · 解析 ${d.textLength || 0} 字`,
+        wide: true,
+        body: `
+          <div class="kv">
+            ${importRow('姓名', d.personName)}
+            ${importRow('求职意向', d.target)}
+            ${importRow('手机号', d.phone)}
+            ${importRow('邮箱', d.email)}
+            ${importRow('技能', (d.skills || []).join('、'))}
+          </div>
+          <div class="mt-16">
+            <div class="small strong">识别到的项目经历（${projects.length}）</div>
+            ${projects.length
+              ? `<div class="list mt-8">${projects.map((p) => `
+                  <div class="list-item">
+                    <div class="list-item-main">
+                      <div class="list-item-title">${App.esc(p.title)}</div>
+                      <div class="small muted mt-8">${App.esc(String(p.desc || '').slice(0, 160))}</div>
+                    </div>
+                  </div>`).join('')}</div>`
+              : '<div class="small faint mt-8">未识别到项目经历，可在表单中补充</div>'}
+          </div>
+          <div class="banner banner--warn mt-16">
+            <span data-icon="alert-triangle"></span>
+            <div><strong>请核对后再保存</strong><div class="small mt-8">${warnings.map((w) => App.esc(w)).join('<br>')}</div></div>
+          </div>
+          <details class="mt-16">
+            <summary class="small strong" style="cursor:pointer">查看解析文本预览</summary>
+            <pre class="small muted" style="white-space:pre-wrap;max-height:220px;overflow:auto;margin-top:8px">${App.esc(d.textPreview || '')}</pre>
+          </details>`,
+        footer: `<button class="btn btn-ghost" type="button" data-act="cancel">取消</button>
+                 <button class="btn btn-primary" type="button" data-act="apply"><span data-icon="check"></span>填入表单</button>`
+      });
+      App.renderIcons(m.el);
+      m.el.querySelector('[data-act="cancel"]').addEventListener('click', m.close);
+      m.el.querySelector('[data-act="apply"]').addEventListener('click', () => {
+        applyImportDraft(d);
+        m.close();
+      });
+    }
+
+    async function handleImport(file) {
+      if (!file) return;
+      const ext = (file.name.split('.').pop() || '').toLowerCase();
+      if (!['pdf', 'docx', 'doc', 'txt', 'png', 'jpg', 'jpeg'].includes(ext)) {
+        App.toast('仅支持 PDF、DOCX、DOC、TXT 与图片（PNG/JPG）格式', 'error');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        App.toast('文件不能超过 5MB', 'error');
+        return;
+      }
+      const old = importBtn.innerHTML;
+      importBtn.disabled = true;
+      importBtn.innerHTML = '<span class="spinner"></span>解析中';
+      const res = await Api.Resume.importFile(file);
+      importBtn.disabled = false;
+      importBtn.innerHTML = old;
+      App.renderIcons(importBtn);
+      importFile.value = '';
+      if (res.code !== 0) {
+        App.toast(res.message, 'error');
+        return;
+      }
+      if (editingId) {
+        const go = await App.confirm({
+          title: '覆盖当前表单？',
+          text: '导入结果会覆盖当前已填写的姓名、联系方式、简介、技能与项目，未保存的修改将丢失。',
+          okText: '继续导入',
+          danger: true
+        });
+        if (!go) return;
+      }
+      openImportModal(res.data);
+    }
+
+    function fillForm(r) {
+      resumeName.value = r.name || '';
+      fullName.value = r.personName || me.name || '';
+      jobTarget.value = r.target || '';
+      phoneInput.value = r.phone || '';
+      emailInput.value = r.email || '';
+      summaryInput.value = r.summary || '';
+
+      eduList.innerHTML = '';
+      (r.education || []).forEach((e) => addEduRow(e, true));
+      if (!App.qsa('.row-card', eduList).length) addEduRow({}, true);
+
+      projectList.innerHTML = '';
+      (r.projects || []).forEach((p) => addProjectRow(p, true));
+      if (!App.qsa('.row-card', projectList).length) addProjectRow({}, true);
+
+      skillsInput.value = (r.skills || []).join('，');
+      refreshRowLabels();
+      updatePreview();
+      renderSensitive(r.sensitiveWarnings);
+    }
+
+    async function loadExisting() {
+      try {
+        const res = await Api.Resume.get(editingId);
+        if (res.code !== 0) {
+          App.toast(res.message || '简历不存在', 'error');
+          setTimeout(() => { location.href = 'resumes.html'; }, 600);
+          return;
+        }
+        fillForm(res.data);
+        editLoading.classList.add('hidden');
+        editBody.classList.remove('hidden');
+        saveBtn.disabled = false;
+        saveAnalyzeBtn.disabled = false;
+      } catch (err) {
+        App.toast('简历加载失败，请稍后重试', 'error');
+        setTimeout(() => { location.href = 'resumes.html'; }, 600);
+      }
+    }
+
+    importBtn.addEventListener('click', () => importFile.click());
+    importFile.addEventListener('change', () => handleImport(importFile.files[0]));
+
+    addEduBtn.addEventListener('click', () => addEduRow({}));
+    addProjectBtn.addEventListener('click', () => addProjectRow({}));
+
+    form.addEventListener('click', (e) => {
+      const removeBtn = e.target.closest('[data-act="remove-edu"], [data-act="remove-project"]');
+      if (!removeBtn) return;
+      const list = removeBtn.dataset.act === 'remove-edu' ? eduList : projectList;
+      if (App.qsa('.row-card', list).length <= 1) return;
+      removeBtn.closest('.row-card').remove();
+      refreshRowLabels();
+      updatePreview();
+    });
+
+    form.addEventListener('input', (e) => {
+      const field = e.target.closest('.field');
+      if (field) field.classList.remove('invalid');
+      updatePreview();
+    });
+
+    form.addEventListener('change', () => updatePreview());
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      save(false);
+    });
+
+    saveBtn.addEventListener('click', () => save(false));
+    saveAnalyzeBtn.addEventListener('click', () => save(true));
+
+    if (editingId) {
+      editTitle.textContent = '编辑简历';
+      editLoading.classList.remove('hidden');
+      editBody.classList.add('hidden');
+      saveBtn.disabled = true;
+      saveAnalyzeBtn.disabled = true;
+      loadExisting();
+    } else {
+      editTitle.textContent = '新建简历';
+      editLoading.classList.add('hidden');
+      editBody.classList.remove('hidden');
+      addEduRow({}, true);
+      addProjectRow({}, true);
+      updatePreview();
+    }
+  })();
+</script>
+</body>
+</html>

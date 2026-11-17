@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>登录 · 简历工坊</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="auth-shell">
+  <section class="auth-hero">
+    <div>
+      <div class="auth-brand">
+        <div class="brand-mark">简</div>
+        <div>
+          <strong>简历工坊</strong>
+          <span>AI RESUME STUDIO</span>
+        </div>
+      </div>
+      <h1>让每一份简历，<br>对准<em>那一个岗位</em>。</h1>
+      <p class="lead">把简历与目标岗位 JD 放在一起分析，得到匹配度、缺失关键词与可执行的修改建议，并保留每一次修改的版本。</p>
+      <div class="auth-features">
+        <div class="auth-feature">
+          <span class="fi" data-icon="target"></span>
+          <div><strong>岗位对齐分析</strong>对照 JD 找出未覆盖的关键词与薄弱模块，而不是泛泛点评。</div>
+        </div>
+        <div class="auth-feature">
+          <span class="fi" data-icon="git-compare"></span>
+          <div><strong>可追溯的版本</strong>采纳建议后生成新版本，原版本随时回看与并排对比。</div>
+        </div>
+        <div class="auth-feature">
+          <span class="fi" data-icon="shield"></span>
+          <div><strong>降级不中断</strong>AI 服务不可用时自动切换规则模式，核心业务流程仍可完成。</div>
+        </div>
+      </div>
+    </div>
+    <div class="auth-hero-foot">
+      <span>课程实训项目</span>
+      <span>·</span>
+      <span>数据保存在本机 MySQL 数据库</span>
+    </div>
+  </section>
+
+  <section class="auth-panel">
+    <div class="auth-card">
+      <h2 id="authTitle">欢迎回来</h2>
+      <p class="sub" id="authSub">登录后继续维护简历与查看分析结果</p>
+
+      <div class="auth-tabs" role="tablist">
+        <button class="auth-tab active" id="tabLogin" type="button" role="tab" aria-selected="true">登录</button>
+        <button class="auth-tab" id="tabRegister" type="button" role="tab" aria-selected="false">注册</button>
+      </div>
+
+      <form class="auth-form" id="loginForm" novalidate>
+        <div class="field" id="loginAccountField">
+          <label class="field-label" for="loginAccount">账号</label>
+          <input class="input" id="loginAccount" autocomplete="username" placeholder="请输入账号">
+          <div class="field-error">请输入账号</div>
+        </div>
+        <div class="field" id="loginPasswordField">
+          <label class="field-label" for="loginPassword">密码</label>
+          <input class="input" id="loginPassword" type="password" autocomplete="current-password" placeholder="请输入密码">
+          <div class="field-error">请输入密码</div>
+        </div>
+        <button class="btn btn-primary btn-block" id="loginBtn" type="submit">登 录</button>
+      </form>
+
+      <form class="auth-form hidden" id="registerForm" novalidate>
+        <div class="field" id="regNameField">
+          <label class="field-label" for="regName">昵称</label>
+          <input class="input" id="regName" placeholder="例如：林知远">
+          <div class="field-error">请输入昵称</div>
+        </div>
+        <div class="field" id="regAccountField">
+          <label class="field-label" for="regAccount">账号</label>
+          <input class="input" id="regAccount" autocomplete="username" placeholder="4～20 位字母或数字">
+          <div class="field-error">请输入账号</div>
+        </div>
+        <div class="field" id="regPasswordField">
+          <label class="field-label" for="regPassword">密码</label>
+          <input class="input" id="regPassword" type="password" autocomplete="new-password" placeholder="至少 6 位">
+          <div class="field-error">密码至少 6 位</div>
+        </div>
+        <div class="field" id="regConfirmField">
+          <label class="field-label" for="regConfirm">确认密码</label>
+          <input class="input" id="regConfirm" type="password" autocomplete="new-password" placeholder="再次输入密码">
+          <div class="field-error">两次输入的密码不一致</div>
+        </div>
+        <button class="btn btn-primary btn-block" id="registerBtn" type="submit">创建学生账号</button>
+      </form>
+
+      <div class="auth-demo">
+        <strong>演示账号</strong>（数据库种子数据）
+        <div class="row">
+          <button class="btn btn-outline btn-sm" type="button" id="fillStudent">学生 linzhiyuan</button>
+          <button class="btn btn-outline btn-sm" type="button" id="fillAdmin">管理员 admin</button>
+        </div>
+        <div class="mt-8 small faint">学生密码 123456 · 管理员密码 admin123</div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script src="api.js"></script>
+<script src="app.js"></script>
+<script>
+(function () {
+  App.renderIcons();
+
+  const existing = App.Auth.current();
+  if (existing) {
+    location.replace(existing.role === 'admin' ? 'admin/dashboard.html' : 'student/dashboard.html');
+    return;
+  }
+
+  const $ = App.qs;
+  const loginForm = $('#loginForm');
+  const registerForm = $('#registerForm');
+  const tabLogin = $('#tabLogin');
+  const tabRegister = $('#tabRegister');
+  const authTitle = $('#authTitle');
+  const authSub = $('#authSub');
+
+  function setFieldError(id, invalid) {
+    const field = $(id);
+    field.classList.toggle('invalid', invalid);
+  }
+
+  function switchTab(which) {
+    const isLogin = which === 'login';
+    tabLogin.classList.toggle('active', isLogin);
+    tabRegister.classList.toggle('active', !isLogin);
+    tabLogin.setAttribute('aria-selected', String(isLogin));
+    tabRegister.setAttribute('aria-selected', String(!isLogin));
+    loginForm.classList.toggle('hidden', !isLogin);
+    registerForm.classList.toggle('hidden', isLogin);
+    authTitle.textContent = isLogin ? '欢迎回来' : '创建学生账号';
+    authSub.textContent = isLogin ? '登录后继续维护简历与查看分析结果' : '注册后即可维护简历并发起 AI 分析';
+    document.querySelectorAll('.field').forEach((f) => f.classList.remove('invalid'));
+  }
+
+  tabLogin.addEventListener('click', () => switchTab('login'));
+  tabRegister.addEventListener('click', () => switchTab('register'));
+
+  function fill(account, password) {
+    switchTab('login');
+    $('#loginAccount').value = account;
+    $('#loginPassword').value = password;
+    App.toast(`已填入${account === 'admin' ? '管理员' : '学生'}演示账号，点击「登录」继续`, 'info');
+  }
+  $('#fillStudent').addEventListener('click', () => fill('linzhiyuan', '123456'));
+  $('#fillAdmin').addEventListener('click', () => fill('admin', 'admin123'));
+
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const account = $('#loginAccount').value.trim();
+    const password = $('#loginPassword').value;
+    const badAccount = !account;
+    const badPassword = !password;
+    setFieldError('#loginAccountField', badAccount);
+    setFieldError('#loginPasswordField', badPassword);
+    if (badAccount || badPassword) return;
+
+    const btn = $('#loginBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner spinner--light"></span> 正在登录';
+    const res = await Api.Auth.login({ account, password });
+    if (res.code !== 0) {
+      btn.disabled = false;
+      btn.textContent = '登 录';
+      App.toast(res.message, 'error');
+      return;
+    }
+    App.Auth.set(res.data);
+    location.href = res.data.role === 'admin' ? 'admin/dashboard.html' : 'student/dashboard.html';
+  });
+
+  registerForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = $('#regName').value.trim();
+    const account = $('#regAccount').value.trim();
+    const password = $('#regPassword').value;
+    const confirm = $('#regConfirm').value;
+
+    const badName = !name;
+    const badAccount = account.length < 4 || account.length > 20;
+    const badPassword = password.length < 6;
+    const badConfirm = password !== confirm;
+    setFieldError('#regNameField', badName);
+    setFieldError('#regAccountField', badAccount);
+    setFieldError('#regPasswordField', badPassword);
+    setFieldError('#regConfirmField', badConfirm);
+    if (badName || badAccount || badPassword || badConfirm) return;
+
+    const btn = $('#registerBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner spinner--light"></span> 正在注册';
+    const res = await Api.Auth.register({ account, password, name });
+    btn.disabled = false;
+    btn.textContent = '创建学生账号';
+    if (res.code !== 0) { App.toast(res.message, 'error'); return; }
+
+    App.toast('注册成功，请使用新账号登录', 'success');
+    switchTab('login');
+    $('#loginAccount').value = account;
+    $('#loginPassword').value = '';
+    $('#loginPassword').focus();
+  });
+})();
+</script>
+</body>
+</html>
