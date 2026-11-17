@@ -1,11 +1,12 @@
 # AI 简历优化系统 · 项目开发文档
 
-> 版本：v2.2（第十一阶段：全项目审查 + OCR 与导入链路修复）　日期：2026-11-17
+> 版本：v2.3（第十二阶段：简历删除 / 导出、修改密码）　日期：2026-11-17
 > 说明：本文档实时记录开发进度、任务状态、技术问题与解决方案，与代码实际状态保持一致。
 > 部署与启动：见《项目启动说明-AI简历优化系统.md》（环境要求、导库、启动命令、账号、AI 厂商配置、自定义 API 指引、验证命令与 FAQ）。
 > 需求基线：《需求分析说明书-AI简历优化系统.md》v0.8；数据基线：ai-resume-system/db/schema.sql + data.sql + migration-v1.6/v1.7/v1.8/v1.9/v2.0。
 > **当前状态：需求范围内功能全部完成（含 v2.0 扩展项）；e2e 136/136（规则模式）、单元 56/56、集成 17/17；AI 厂商可在管理端切换；学生可把任意 HTTP 接口配成可复用自定义 API，服务端代发并统一处理超时/重试/截断/脱敏，请求头值 AES-256-GCM 加密存储。**
 > **v2.2（2026-11-17）**：按全项目审查结论修复 OCR / 导入链路 8 个缺陷（P51~P58），新增 `ResumeImportServiceTest`、`ResumeOcrServiceTest` 共 16 项单元测试（本机 JDK 17 直编运行 16/16 通过）。上述 e2e / 集成数字为 v2.1 结果，v2.2 新增的 2 项 e2e 用例需在具备 MySQL 与 AI 密钥的环境重跑确认。
+> **v2.3（2026-11-17）**：新增 FR-RESUME-06（简历删除 / 批量删除、Markdown 与纯文本导出）与 FR-USER-03（修改密码，改后吊销其余会话）；新增 `ResumeServiceTest` 9 项、`AuthControllerPasswordTest` 5 项单元测试（与 v2.2 合计 **30 项，本机直跑 30/30 通过**）；e2e 新增 13 项用例（待具备 MySQL 的环境执行确认）。
 
 ## 0. 本阶段（v2.0 / v2.1）目标与功能范围
 
@@ -397,7 +398,28 @@ CREATE TABLE IF NOT EXISTS sys_config (
 - **旧请求兼容**：`PUT /ai/settings` 仅含 `model` 时仍走 `updateModel`，行为与 v1.7 一致；`GET /ai/settings` 保留全部旧字段。
 - **旧部署兼容**：未在页面配置过的环境继续用 yml/环境变量，`aiUsable` 判定与降级语义（BR-ANALYSIS-03~06）不变。
 
-### 3.6 自定义 API（v2.0）
+### 3.6 简历删除 / 导出 / 修改密码（v2.3）
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| POST | `/api/resumes/batch-delete` | body `{"ids":["1","2"]}`；单份删除也走此接口。返回 `{deleted, skipped, deletedTasks}` |
+| GET | `/api/resumes/{id}/export?format=md\|txt` | 返回 `{fileName, format, content}`，由前端生成 Blob 下载（不额外开免鉴权通道） |
+| POST | `/api/auth/password` | body `{oldPassword, newPassword}`；成功后吊销该用户全部旧凭证并返回 `{token}` |
+
+```jsonc
+// POST /api/resumes/batch-delete
+{ "code": 0, "data": { "deleted": 2, "skipped": 0, "deletedTasks": 5 } }
+
+// GET /api/resumes/10/export?format=md
+{ "code": 0, "data": {
+  "fileName": "林知远.md", "format": "md",
+  "content": "# 林知远\n\n> 求职意向：Java 后端开发实习生\n\n…"
+} }
+```
+
+**删除的约束链**：`analysis_task.resume_id` 是 RESTRICT 外键，删除简历前必须先清该简历的分析任务；`resume_version`、`resume_education/project/skill` 由外键 CASCADE 自动清除。删除语句带 `user_id` 条件，非本人简历计入 `skipped` 且不执行任何写操作。
+
+### 3.7 自定义 API（v2.0）
 
 **配置字段**
 
@@ -763,3 +785,4 @@ ai-resume-system/
 | 2026-11-16 | **v2.1**：自定义 API 请求头值改为 AES-256-GCM 加密存储（`enc:v1:` 密文，复用 `AiKeyCipher` 与本机密钥文件）；敏感头回显只给掩码并附 `masked/hasValue`，前端以 `keep=true` 沿用原值，避免掩码覆盖密文；启动时自动加密历史明文（幂等），实测明文行重启后变为密文；e2e **136/136**（新增 5 项加密用例）、单元 56/56、集成 17/17；记录 P49~P50 |
 | 2026-11-16 | **v2.0**：学生端新增「API 控制台」与自定义 API（EXT-API-01~05）——`user_api_config` 表（11 表/10 外键）、配置 CRUD + 分组/标签筛选 + 复制、草稿测试与已存调用、服务端代发（超时/重试/64KB 截断/托管头拦截/敏感头掩码）、`student/api-console.html` 页面、`Api.Custom` 离线兜底与 `invokeByName`；修复插入取主键改 `GeneratedKeyHolder`（P44）、列表列宽溢出（P45）、走查在规则模式误失败（P46）、新增用例归属断言错误（P47）、演示简历缺失（P48）；e2e **131/131**（新增 34 项）、单元 **50/50**、集成 **16/16**、走查 **12 页** 0 异常并新增截图 09 |
 | 2026-11-17 | **v2.2**：按全项目审查结论修复 OCR 与导入链路的 6 个缺陷（P51~P56）——JPG 误按 PNG 发送、直接上传图片缺归一化、扫描件判定阈值过低、页数截断无提示、单页失败导致整体失败、TXT BOM 未剥离；补充 429/5xx 单次重试（P57）、OCR 报文字段与前端超时/耗时显示、DPI 与页数钳制；新增 `ResumeImportServiceTest`/`ResumeOcrServiceTest` 共 **16 项**单元测试（本机 JDK17 直编运行 16/16 通过，无需 AI 密钥）；e2e 新增 BOM 与 JPG 两项用例（待具备 MySQL + 密钥的环境执行确认）；启动说明补充「扫描件识别的能力与限制」 |
+| 2026-11-17 | **v2.3**：新增 FR-RESUME-06 简历删除（单份 / 批量 ≤50）与导出（Markdown、纯文本），删除前先清 `analysis_task` 以满足 RESTRICT 外键，删除语句带 `user_id` 防越权；新增 FR-USER-03 修改密码，改后吊销该用户全部旧凭证并返回新 token；学生端简历卡片新增导出 / 删除按钮与批量选择，导航用户区新增改密入口（`app.js` 统一注入，全部页面生效）；补充 `ResumeServiceTest`（9 项）、`AuthControllerPasswordTest`（5 项），累计 **30 项单元测试本机直跑 30/30**；e2e 新增 13 项（导出/删除 6 项、改密 7 项）；需求说明书升级 v0.10，开发文档新增 3.6 节接口说明 |

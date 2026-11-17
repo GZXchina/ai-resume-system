@@ -68,6 +68,8 @@
         <input class="input" id="resumeSearch" type="search" placeholder="搜索简历名称或求职意向" autocomplete="off">
       </div>
       <span class="spacer"></span>
+      <span class="small faint" id="selCount"></span>
+      <button class="btn btn-outline btn-sm" type="button" id="batchDeleteBtn" disabled>批量删除</button>
       <span class="small faint" id="resumeCount">共 — 份</span>
     </div>
 
@@ -116,6 +118,63 @@
     let debounceTimer = null;
     let requestSeq = 0;
 
+    const selected = new Set();
+    const selCountEl = document.getElementById('selCount');
+    const batchBtn = document.getElementById('batchDeleteBtn');
+
+    function updateSelBar() {
+      selCountEl.textContent = selected.size ? `已选 ${selected.size} 份` : '';
+      batchBtn.disabled = selected.size === 0;
+    }
+
+    /** 导出内容由前端生成 Blob 下载，避免为下载单独开一条免鉴权通道 */
+    function downloadText(fileName, content, format) {
+      const type = format === 'txt' ? 'text/plain;charset=utf-8' : 'text/markdown;charset=utf-8';
+      const blob = new Blob([content], { type });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName || 'resume.md';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    async function doExport(id) {
+      App.toast('正在生成导出文件…', 'info');
+      const res = await Api.Resume.exportFile(id, 'md');
+      if (res.code !== 0) {
+        App.toast(res.message || '导出失败，请稍后重试', 'error');
+        return;
+      }
+      downloadText(res.data.fileName, res.data.content, res.data.format);
+    }
+
+    async function doDelete(ids, label) {
+      const go = await App.confirm({
+        title: '删除简历？',
+        text: label
+          ? `将删除「${label}」及其版本记录，关联的分析记录也会一并清除，且无法恢复。`
+          : `将删除选中的 ${ids.length} 份简历及其版本与分析记录，且无法恢复。`,
+        okText: '删除',
+        danger: true
+      });
+      if (!go) return;
+      const res = ids.length > 1
+        ? await Api.Resume.removeMany(ids)
+        : await Api.Resume.remove(ids[0]);
+      if (res.code !== 0) {
+        App.toast(res.message || '删除失败，请稍后重试', 'error');
+        return;
+      }
+      const d = res.data || {};
+      App.toast(`已删除 ${d.deleted || 0} 份简历${d.deletedTasks ? `、${d.deletedTasks} 条分析记录` : ''}`, 'success');
+      selected.clear();
+      updateSelBar();
+      load(searchInput.value.trim());
+    }
+
     function skeletonHtml() {
       return Array.from({ length: 3 }).map(() => `
         <div class="card">
@@ -139,11 +198,14 @@
       const summary = r.summary && r.summary.trim() ? r.summary : '尚未填写个人简介。';
       return `<article class="card reveal" style="--d:${index}">
         <div class="card-head">
-          <div style="min-width:0">
-            <a class="card-title resume-title truncate" href="resume-edit.html?id=${encodeURIComponent(r.id)}">${App.esc(r.name)}</a>
-            <div class="resume-tags">
-              <span class="tag tag-info">${App.esc(r.target)}</span>
-              <span class="tag tag-neutral">v${r.version || 1}</span>
+          <div style="display:flex;gap:10px;align-items:flex-start;min-width:0;width:100%">
+            <input type="checkbox" class="resume-check" data-check="${encodeURIComponent(r.id)}" aria-label="选择这份简历" style="margin-top:4px;flex:none">
+            <div style="min-width:0">
+              <a class="card-title resume-title truncate" href="resume-edit.html?id=${encodeURIComponent(r.id)}">${App.esc(r.name)}</a>
+              <div class="resume-tags">
+                <span class="tag tag-info">${App.esc(r.target)}</span>
+                <span class="tag tag-neutral">v${r.version || 1}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -160,7 +222,9 @@
           <div class="resume-actions">
             <a class="btn btn-outline btn-sm" href="resume-edit.html?id=${encodeURIComponent(r.id)}"><span data-icon="pen-line"></span>编辑</a>
             <a class="btn btn-outline btn-sm" href="versions.html?resumeId=${encodeURIComponent(r.id)}"><span data-icon="git-compare"></span>版本</a>
+            <button class="btn btn-outline btn-sm" type="button" data-export="${encodeURIComponent(r.id)}"><span data-icon="file-text"></span>导出</button>
             <a class="btn btn-primary btn-sm" href="analysis.html?resume=${encodeURIComponent(r.id)}"><span data-icon="sparkles"></span>用它分析</a>
+            <button class="btn btn-outline btn-sm" type="button" data-del="${encodeURIComponent(r.id)}" data-name="${App.esc(r.name)}"><span data-icon="x"></span>删除</button>
           </div>
         </div>
       </article>`;
@@ -214,6 +278,8 @@
 
     async function load(q) {
       const seq = ++requestSeq;
+      selected.clear();
+      updateSelBar();
       showSkeleton();
       try {
         const res = await Api.Resume.list({ q });
@@ -246,7 +312,30 @@
         searchInput.value = '';
         searchInput.focus();
         load('');
+        return;
       }
+      const exportBtn = e.target.closest('[data-export]');
+      if (exportBtn) {
+        doExport(decodeURIComponent(exportBtn.dataset.export));
+        return;
+      }
+      const delBtn = e.target.closest('[data-del]');
+      if (delBtn) {
+        doDelete([decodeURIComponent(delBtn.dataset.del)], delBtn.dataset.name);
+      }
+    });
+
+    grid.addEventListener('change', (e) => {
+      const cb = e.target.closest('[data-check]');
+      if (!cb) return;
+      const id = decodeURIComponent(cb.dataset.check);
+      if (cb.checked) selected.add(id); else selected.delete(id);
+      updateSelBar();
+    });
+
+    batchBtn.addEventListener('click', () => {
+      if (!selected.size) return;
+      doDelete(Array.from(selected));
     });
 
     load('');

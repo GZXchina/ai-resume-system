@@ -148,4 +148,18 @@ public class ResumeDao {
             jdbc.update("INSERT INTO resume_skill (resume_id, skill, sort_no) VALUES (?,?,?)", resumeId, skills.get(i), i);
         }
     }
+
+    /**
+     * 删除简历前先清理关联的分析任务：
+     * analysis_task.resume_id 是 RESTRICT 外键，不先删会直接被数据库拒绝。
+     * 只删当前用户名下的任务，避免越权。
+     */
+    public int deleteAnalysesByResume(long resumeId, long userId) {
+        return jdbc.update("DELETE FROM analysis_task WHERE resume_id = ? AND user_id = ?", resumeId, userId);
+    }
+
+    /** 删除简历；条件带 user_id，确保只能删自己的（其余子表由外键 CASCADE 处理）。 */
+    public int deleteByIdAndUser(long id, long userId) {
+        return jdbc.update("DELETE FROM resume WHERE id = ? AND user_id = ?", id, userId);
+    }
 }

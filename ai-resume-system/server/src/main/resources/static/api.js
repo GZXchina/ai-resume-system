@@ -139,6 +139,10 @@ window.Api = (() => {
     },
     async me() {
       return get('/auth/me');
+    },
+    /** 修改密码：成功后服务端吊销旧凭证并返回新 token，需写回本地会话 */
+    async changePassword({ oldPassword, newPassword }) {
+      return post('/auth/password', { oldPassword, newPassword });
     }
   };
 
@@ -168,6 +172,17 @@ window.Api = (() => {
       const form = new FormData();
       form.append('file', file);
       return upload('/resumes/import', form);
+    },
+    /** 删除简历：单份也走批量接口，减少一个后端端点 */
+    async remove(id) {
+      return post('/resumes/batch-delete', { ids: [id] });
+    },
+    async removeMany(ids) {
+      return post('/resumes/batch-delete', { ids });
+    },
+    /** 导出简历：返回 { fileName, format, content }，由页面生成 Blob 触发下载 */
+    async exportFile(id, format = 'md') {
+      return get('/resumes/' + encodeURIComponent(id) + '/export' + qs({ format }));
     }
   };
 

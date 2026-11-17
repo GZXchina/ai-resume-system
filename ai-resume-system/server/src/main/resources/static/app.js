@@ -159,6 +159,52 @@ window.App = (() => {
     return '<span class="tag tag-neutral">低优先级</span>';
   }
 
+  /* ---------- 修改密码（所有页面共用） ---------- */
+  function changePasswordDialog() {
+    const body = `
+      <div class="field">
+        <label class="field-label" for="pwdOld">原密码</label>
+        <input class="input" id="pwdOld" type="password" autocomplete="current-password" placeholder="请输入当前密码">
+      </div>
+      <div class="field" style="margin-top:12px">
+        <label class="field-label" for="pwdNew">新密码</label>
+        <input class="input" id="pwdNew" type="password" autocomplete="new-password" placeholder="至少 6 位">
+      </div>
+      <div class="field" style="margin-top:12px">
+        <label class="field-label" for="pwdConfirm">确认新密码</label>
+        <input class="input" id="pwdConfirm" type="password" autocomplete="new-password" placeholder="再次输入新密码">
+      </div>
+      <div class="field-hint" style="margin-top:12px">修改成功后，其他设备上的登录会失效，当前页面保持登录。</div>`;
+    const footer = `
+      <button class="btn btn-outline" type="button" data-cancel="1">取消</button>
+      <button class="btn btn-primary" type="button" data-ok="1">确认修改</button>`;
+    const m = modal({ title: '修改密码', sub: '下次登录请使用新密码', body, footer });
+    const oldEl = m.el.querySelector('#pwdOld');
+    const newEl = m.el.querySelector('#pwdNew');
+    const againEl = m.el.querySelector('#pwdConfirm');
+    const okBtn = m.el.querySelector('[data-ok]');
+    m.el.querySelector('[data-cancel]').addEventListener('click', m.close);
+
+    okBtn.addEventListener('click', async () => {
+      const oldPwd = oldEl.value;
+      const newPwd = newEl.value;
+      if (!oldPwd) { toast('请输入原密码', 'error'); oldEl.focus(); return; }
+      if (newPwd.length < 6) { toast('新密码至少 6 位', 'error'); newEl.focus(); return; }
+      if (newPwd !== againEl.value) { toast('两次输入的新密码不一致', 'error'); againEl.focus(); return; }
+      if (newPwd === oldPwd) { toast('新密码不能与原密码相同', 'error'); newEl.focus(); return; }
+
+      okBtn.disabled = true;
+      const res = await Api.Auth.changePassword({ oldPassword: oldPwd, newPassword: newPwd });
+      okBtn.disabled = false;
+      if (res.code !== 0) { toast(res.message || '修改失败，请稍后重试', 'error'); return; }
+      const s = Auth.current();
+      if (s && res.data && res.data.token) Auth.set(Object.assign({}, s, { token: res.data.token }));
+      m.close();
+      toast('密码已修改', 'success');
+    });
+    oldEl.focus();
+  }
+
   function init({ role, page }) {
     const s = Auth.current();
     if (!s) { location.replace('../index.html'); return; }
@@ -177,11 +223,25 @@ window.App = (() => {
     const av = document.getElementById('navAvatar');
     if (av) av.textContent = initials(s.name);
     const out = document.getElementById('logoutBtn');
-    if (out) out.addEventListener('click', () => {
-      if (window.Api && Api.Auth.logout) { try { Api.Auth.logout(); } catch (e) { /* 忽略网络异常 */ } }
-      Auth.clear();
-      location.replace('../index.html');
-    });
+    if (out) {
+      // 在「退出」旁边插入「修改密码」入口，所有页面共用同一实现
+      if (!document.getElementById('pwdBtn')) {
+        const pwdBtn = document.createElement('button');
+        pwdBtn.className = 'icon-btn';
+        pwdBtn.id = 'pwdBtn';
+        pwdBtn.type = 'button';
+        pwdBtn.title = '修改密码';
+        pwdBtn.setAttribute('aria-label', '修改密码');
+        pwdBtn.innerHTML = svg('shield');
+        out.parentNode.insertBefore(pwdBtn, out);
+        pwdBtn.addEventListener('click', changePasswordDialog);
+      }
+      out.addEventListener('click', () => {
+        if (window.Api && Api.Auth.logout) { try { Api.Auth.logout(); } catch (e) { /* 忽略网络异常 */ } }
+        Auth.clear();
+        location.replace('../index.html');
+      });
+    }
     renderIcons();
   }
 

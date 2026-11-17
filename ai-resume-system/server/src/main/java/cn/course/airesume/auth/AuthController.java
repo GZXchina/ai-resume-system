@@ -72,5 +72,31 @@ public class AuthController {
         return ApiResponse.ok(AuthContext.require().toClient(null));
     }
 
+    /**
+     * 修改密码（FR-USER-02 扩展）：校验原密码 → 写入新哈希 → 吊销该用户全部旧凭证 → 返回新 token。
+     * 这样其他设备上的登录会立即失效，而当前会话无需重新登录。
+     */
+    @PostMapping("/password")
+    public ApiResponse<?> changePassword(@RequestBody Map<String, String> body) {
+        LoginUser me = AuthContext.require();
+        String oldPassword = body.get("oldPassword") == null ? "" : body.get("oldPassword");
+        String newPassword = body.get("newPassword") == null ? "" : body.get("newPassword");
+
+        if (newPassword.length() < 6) throw new BizException("新密码至少 6 位");
+        if (newPassword.length() > 64) throw new BizException("新密码不能超过 64 位");
+        if (newPassword.equals(oldPassword)) throw new BizException("新密码不能与原密码相同");
+
+        String hash = userDao.passwordHashOf(me.account());
+        if (hash == null || !Passwords.verify(oldPassword, hash)) {
+            throw new BizException("原密码不正确");
+        }
+        if (userDao.updatePassword(me.id(), Passwords.hash(newPassword)) <= 0) {
+            throw new BizException("密码修改失败，请稍后重试");
+        }
+        tokenService.revokeByUser(me.id());
+        String token = tokenService.issue(me.id());
+        return ApiResponse.ok(Map.of("token", token));
+    }
+
     private static String trim(String s) { return s == null ? "" : s.trim(); }
 }

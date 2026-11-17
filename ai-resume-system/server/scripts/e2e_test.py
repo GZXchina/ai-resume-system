@@ -254,6 +254,24 @@ def main():
     _, r = call("GET", "/api/resumes", token=token)
     check("FR-RESUME-02 列表含版本数", r["data"][0]["versionCount"] == 1, r)
 
+    # ---------- 导出与删除（扩展） ----------
+    _, r = call("POST", "/api/resumes", dict(good, name="导出与删除测试"), token)
+    tmp_id = r["data"]["id"]
+    _, r = call("GET", "/api/resumes/" + tmp_id + "/export?format=md", token=token)
+    d = r.get("data", {})
+    check("FR-RESUME-06 导出 Markdown 含标题与文件名",
+          r.get("code") == 0 and d.get("content", "").startswith("# 测试")
+          and d.get("fileName", "").endswith(".md"), d.get("fileName"))
+    _, r = call("GET", "/api/resumes/" + tmp_id + "/export?format=txt", token=token)
+    check("FR-RESUME-06 导出纯文本含分节标题",
+          r.get("code") == 0 and "【专业技能】" in r["data"]["content"], r)
+    _, r = call("POST", "/api/resumes/batch-delete", {"ids": [tmp_id]}, token)
+    check("FR-RESUME-06 删除简历成功", r.get("code") == 0 and r["data"]["deleted"] == 1, r)
+    _, r = call("GET", "/api/resumes/" + tmp_id, token=token)
+    check("FR-RESUME-06 删除后不可再访问", r.get("code") == 1, r)
+    _, r = call("POST", "/api/resumes/batch-delete", {"ids": []}, token)
+    check("FR-RESUME-06 空列表删除被拒绝", r.get("code") == 1, r)
+
     # ---------- AC-USER-02 越权 ----------
     _, r = call("GET", "/api/resumes/1", token=token)  # 简历 1 属于 linzhiyuan
     check("AC-USER-02 越权访问他人简历被拒绝", r.get("code") == 1 and "无权" in r.get("message", ""), r)
@@ -809,6 +827,31 @@ def main():
           left == 0 and not (set(created_api_ids) & set(remain)), (left, remain))
     if mock:
         mock.shutdown()
+
+    # ---------- 修改密码（扩展） ----------
+    pwd_account = "pwd" + str(int(time.time()))[-8:]
+    call("POST", "/api/auth/register", {"account": pwd_account, "password": "origin123", "name": "改密测试"})
+    _, r = call("POST", "/api/auth/login", {"account": pwd_account, "password": "origin123"})
+    pwd_token = r["data"]["token"]
+    _, r = call("POST", "/api/auth/password",
+                {"oldPassword": "wrong-pass", "newPassword": "changed123"}, token=pwd_token)
+    check("FR-USER-03 原密码错误时拒绝改密", r.get("code") == 1 and "原密码" in r.get("message", ""), r)
+    _, r = call("POST", "/api/auth/password",
+                {"oldPassword": "origin123", "newPassword": "123"}, token=pwd_token)
+    check("FR-USER-03 新密码过短被拒绝", r.get("code") == 1, r)
+    _, r = call("POST", "/api/auth/password",
+                {"oldPassword": "origin123", "newPassword": "changed123"}, token=pwd_token)
+    check("FR-USER-03 修改密码成功并返回新 token",
+          r.get("code") == 0 and bool(r["data"].get("token")), r)
+    new_pwd_token = r.get("data", {}).get("token")
+    status, _ = call("GET", "/api/auth/me", token=pwd_token)
+    check("FR-USER-03 改密后旧凭证失效", status == 401)
+    _, r = call("GET", "/api/auth/me", token=new_pwd_token)
+    check("FR-USER-03 新凭证可用", r.get("code") == 0, r)
+    _, r = call("POST", "/api/auth/login", {"account": pwd_account, "password": "origin123"})
+    check("FR-USER-03 旧密码无法再登录", r.get("code") == 1, r)
+    _, r = call("POST", "/api/auth/login", {"account": pwd_account, "password": "changed123"})
+    check("FR-USER-03 新密码可登录", r.get("code") == 0, r)
 
     print("\n==== %d/%d 通过 ====" % (sum(1 for _, ok in results if ok), len(results)))
     failed = [n for n, ok in results if not ok]

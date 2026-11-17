@@ -57,6 +57,35 @@ public class ResumeController {
         return ApiResponse.ok(resumeService.listVersions(id));
     }
 
+    /** 批量删除（也用于单份删除）：body 里传 ids 数组。 */
+    @PostMapping("/batch-delete")
+    public ApiResponse<?> deleteBatch(@RequestBody Map<String, Object> payload) {
+        return ApiResponse.ok(resumeService.deleteBatch(parseIds(payload.get("ids"))));
+    }
+
+    /** 导出为 Markdown（默认）或纯文本，返回内容由前端触发下载。 */
+    @GetMapping("/{id}/export")
+    public ApiResponse<?> export(@PathVariable long id,
+                                 @RequestParam(value = "format", defaultValue = "md") String format) {
+        return ApiResponse.ok(resumeService.export(id, format));
+    }
+
+    /** 兼容前端传 ["1","2"] 或 [1,2] 两种写法。 */
+    private static java.util.List<Long> parseIds(Object raw) {
+        java.util.List<Long> ids = new java.util.ArrayList<>();
+        if (raw instanceof java.util.List<?> list) {
+            for (Object o : list) {
+                if (o == null) continue;
+                try {
+                    ids.add(Long.valueOf(String.valueOf(o).trim()));
+                } catch (NumberFormatException ignored) {
+                    // 非法 id 直接跳过，由 Service 统计 skipped
+                }
+            }
+        }
+        return ids;
+    }
+
     @GetMapping("/{id}/versions/compare")
     public ApiResponse<?> compare(@PathVariable long id,
                                   @RequestParam int a, @RequestParam int b) {

@@ -12,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -91,6 +92,147 @@ public class ResumeService {
         resumeDao.replaceSubModules(existing.id(), form.educations(), form.projects(), form.skills());
         return toClient(resumeDao.findById(existing.id()).orElseThrow(), true);
     }
+
+    /* ---------------- 删除 / 导出 ---------------- */
+
+    /**
+     * 删除简历：支持单份与批量，只允许删除当前用户自己的。
+     * 关联的 analysis_task 是 RESTRICT 外键，必须先清理，否则数据库会拒绝删除。
+     */
+    @Transactional
+    public Map<String, Object> deleteBatch(List<Long> ids) {
+        LoginUser me = AuthContext.require();
+        if (ids == null) throw new BizException("请选择要删除的简历");
+        List<Long> distinct = ids.stream().filter(Objects::nonNull).distinct().toList();
+        if (distinct.isEmpty()) throw new BizException("请选择要删除的简历");
+        if (distinct.size() > 50) throw new BizException("单次最多删除 50 份简历");
+
+        int deleted = 0;
+        int skipped = 0;
+        int deletedTasks = 0;
+        for (Long id : distinct) {
+            ResumeDao.ResumeRow r = resumeDao.findById(id).orElse(null);
+            if (r == null || r.userId() != me.id()) {
+                skipped++;
+                continue;
+            }
+            deletedTasks += resumeDao.deleteAnalysesByResume(id, me.id());
+            deleted += resumeDao.deleteByIdAndUser(id, me.id());
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("deleted", deleted);
+        result.put("skipped", skipped);
+        result.put("deletedTasks", deletedTasks);
+        return result;
+    }
+
+    /** 导出简历为 Markdown 或纯文本（返回内容，由前端触发浏览器下载，避免额外鉴权通道）。 */
+    public Map<String, Object> export(long resumeId, String format) {
+        LoginUser me = AuthContext.require();
+        ResumeDao.ResumeRow r = requireOwn(resumeId, me);
+        boolean md = !"txt".equalsIgnoreCase(format == null ? "md" : format.trim());
+        List<String> skills = resumeDao.listSkills(resumeId);
+        List<ResumeDao.Education> edus = resumeDao.listEducation(resumeId);
+        List<ResumeDao.Project> projects = resumeDao.listProjects(resumeId);
+
+        String content = md
+                ? exportMarkdown(r, skills, edus, projects)
+                : exportPlainText(r, skills, edus, projects);
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("fileName", safeFileName(r.personName(), r.name()) + (md ? ".md" : ".txt"));
+        out.put("format", md ? "md" : "txt");
+        out.put("content", content);
+        return out;
+    }
+
+    private String exportMarkdown(ResumeDao.ResumeRow r, List<String> skills,
+                                  List<ResumeDao.Education> edus, List<ResumeDao.Project> projects) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("# ").append(orDash(r.personName())).append("\n\n");
+        if (notBlank(r.target())) sb.append("> 求职意向：").append(r.target().trim()).append("\n\n");
+        List<String> contacts = new ArrayList<>();
+        if (notBlank(r.phone())) contacts.add("电话：" + r.phone().trim());
+        if (notBlank(r.email())) contacts.add("邮箱：" + r.email().trim());
+        if (!contacts.isEmpty()) sb.append(String.join("　|　", contacts)).append("\n\n");
+        if (notBlank(r.summary())) sb.append("## 个人简介\n\n").append(r.summary().trim()).append("\n\n");
+        if (!skills.isEmpty()) {
+            sb.append("## 专业技能\n\n");
+            skills.forEach(s -> sb.append("- ").append(s).append('\n'));
+            sb.append('\n');
+        }
+        if (!edus.isEmpty()) {
+            sb.append("## 教育经历\n\n");
+            for (ResumeDao.Education e : edus) {
+                sb.append("- ").append(orDash(e.school()));
+                if (notBlank(e.major())) sb.append(" · ").append(e.major().trim());
+                if (notBlank(e.degree())) sb.append(" · ").append(e.degree().trim());
+                if (notBlank(e.period())) sb.append(" · ").append(e.period().trim());
+                if (notBlank(e.gpa())) sb.append(" · GPA ").append(e.gpa().trim());
+                sb.append('\n');
+            }
+            sb.append('\n');
+        }
+        if (!projects.isEmpty()) {
+            sb.append("## 项目 / 实习经历\n\n");
+            for (ResumeDao.Project p : projects) {
+                sb.append("### ").append(orDash(p.title())).append('\n');
+                List<String> meta = new ArrayList<>();
+                if (notBlank(p.role())) meta.add(p.role().trim());
+                if (notBlank(p.period())) meta.add(p.period().trim());
+                if (!meta.isEmpty()) sb.append("_").append(String.join(" · ", meta)).append("_\n\n");
+                if (notBlank(p.description())) sb.append(p.description().trim()).append("\n\n");
+            }
+        }
+        sb.append("---\n\n> 由 AI 简历优化系统导出\n");
+        return sb.toString();
+    }
+
+    private String exportPlainText(ResumeDao.ResumeRow r, List<String> skills,
+                                   List<ResumeDao.Education> edus, List<ResumeDao.Project> projects) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(orDash(r.personName())).append("\n");
+        if (notBlank(r.target())) sb.append("求职意向：").append(r.target().trim()).append("\n");
+        if (notBlank(r.phone())) sb.append("电话：").append(r.phone().trim()).append("\n");
+        if (notBlank(r.email())) sb.append("邮箱：").append(r.email().trim()).append("\n");
+        if (notBlank(r.summary())) sb.append("\n【个人简介】\n").append(r.summary().trim()).append("\n");
+        if (!skills.isEmpty()) {
+            sb.append("\n【专业技能】\n");
+            skills.forEach(s -> sb.append("- ").append(s).append('\n'));
+        }
+        if (!edus.isEmpty()) {
+            sb.append("\n【教育经历】\n");
+            for (ResumeDao.Education e : edus) {
+                sb.append("- ").append(orDash(e.school()));
+                if (notBlank(e.major())) sb.append(" ").append(e.major().trim());
+                if (notBlank(e.degree())) sb.append(" ").append(e.degree().trim());
+                if (notBlank(e.period())) sb.append(" ").append(e.period().trim());
+                sb.append('\n');
+            }
+        }
+        if (!projects.isEmpty()) {
+            sb.append("\n【项目 / 实习经历】\n");
+            for (ResumeDao.Project p : projects) {
+                sb.append(orDash(p.title()));
+                if (notBlank(p.period())) sb.append("（").append(p.period().trim()).append("）");
+                sb.append('\n');
+                if (notBlank(p.description())) sb.append(p.description().trim()).append('\n');
+                sb.append('\n');
+            }
+        }
+        return sb.toString().trim() + "\n";
+    }
+
+    /** 文件名去掉路径分隔符等非法字符，避免浏览器保存失败。 */
+    private static String safeFileName(String personName, String resumeName) {
+        String base = notBlank(personName) ? personName.trim() : orDash(resumeName);
+        String cleaned = base.replaceAll("[\\\\/:*?\"<>|\\s]+", "_");
+        if (cleaned.length() > 40) cleaned = cleaned.substring(0, 40);
+        return cleaned.isEmpty() ? "resume" : cleaned;
+    }
+
+    private static boolean notBlank(String s) { return s != null && !s.isBlank(); }
+
+    private static String orDash(String s) { return notBlank(s) ? s.trim() : "（未填写）"; }
 
     /* ---------------- 版本 ---------------- */
 

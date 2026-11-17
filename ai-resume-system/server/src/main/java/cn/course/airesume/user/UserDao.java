@@ -56,4 +56,9 @@ public class UserDao {
     public void updateStatus(long id, String status) {
         jdbc.update("UPDATE sys_user SET status = ? WHERE id = ?", status, id);
     }
+
+    /** 修改密码：只写新的 PBKDF2 哈希，明文不落库。 */
+    public int updatePassword(long id, String passwordHash) {
+        return jdbc.update("UPDATE sys_user SET password_hash = ? WHERE id = ?", passwordHash, id);
+    }
 }
