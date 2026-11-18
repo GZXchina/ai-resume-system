@@ -31,7 +31,7 @@ ai-resume-system-repo/
 
 ## 一键启动（推荐）
 
-双击根目录的 `启动系统.bat`：自动检查 JDK/Maven/MySQL、端口与数据表，缺失时自动导库，然后以 AI 模式（`profile=ai`，8080）启动并自动打开浏览器。
+双击根目录的 `启动系统.bat`：**自动探测** JDK 17+ / Maven / MySQL 客户端（无需按本机路径改脚本），检查端口与数据表、缺失时自动导库，然后以 AI 模式（`profile=ai`，8080）启动并自动打开浏览器。脚本为 **GBK 编码 + `chcp 936`**，改动后请勿另存为 UTF-8（cmd 会解析错位）。
 
 - AI 密钥、网关地址与数据库口令放在 `ai-key.local.bat`（仅本机使用，已被 `.gitignore` 忽略）
   - 首次使用：复制 `ai-key.local.bat.example` 为 `ai-key.local.bat`，把里面的占位符替换成自己的

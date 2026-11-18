@@ -1,146 +1,249 @@
 @echo off
-chcp 65001 >nul
+chcp 936 >nul
 setlocal EnableExtensions
 
 set "ROOT=%~dp0"
 set "SERVER_DIR=%ROOT%ai-resume-system\server"
 set "DB_DIR=%ROOT%ai-resume-system\db"
-set "MYSQL=C:\Program Files\MySQL\MySQL Server 5.5\bin\mysql.exe"
 set "DB_USER=root"
-set "DB_PASS="
 set "DB_NAME=ai_resume"
-set "APP_URL=http://localhost:8080/"
+set "APP_PORT=8080"
+set "APP_URL=http://localhost:%APP_PORT%/"
 
-title AI ç®€å†ä¼˜åŒ–ç³»ç»Ÿ - ä¸€é”®å¯åŠ¨
+set "JAVA_HOME="
+set "MAVEN_HOME="
+set "MYSQL="
+set "DB_PASS="
+set "JAVA_VER=?"
+
+title AI ¼òÀúÓÅ»¯ÏµÍ³ - Ò»¼üÆô¶¯
 cls
 echo ============================================================
-echo    AI ç®€å†ä¼˜åŒ–ç³»ç»Ÿ - ä¸€é”®å¯åŠ¨
-echo    å­¦ç”Ÿç«¯ï¼š%APP_URL%
-echo    ç®¡ç†ç«¯ï¼š%APP_URL%admin/dashboard.html
+echo    AI ¼òÀúÓÅ»¯ÏµÍ³ - Ò»¼üÆô¶¯
+echo    Ñ§Éú¶Ë£º%APP_URL%
+echo    ¹ÜÀí¶Ë£º%APP_URL%admin/dashboard.html
 echo ============================================================
 echo.
 
-rem ================= 0/5 åŠ è½½æœ¬åœ°é…ç½®ï¼ˆä¸è¿›å…¥ä»“åº“ï¼‰=================
-rem å¯†é’¥ã€å£ä»¤ä¸å·¥å…·é“¾è·¯å¾„ç»Ÿä¸€ä» ai-key.local.bat è¯»å–ï¼ˆè¯¥æ–‡ä»¶å·²è¢« .gitignore å¿½ç•¥ï¼‰
+rem ================= 0/5 ¼ÓÔØ±¾µØÅäÖÃ£¨²»½øÈë²Ö¿â£©=================
+rem ÃÜÔ¿¡¢¿ÚÁîÓë¿ÉÑ¡µÄ¹¤¾ßÁ´Â·¾¶´Ó ai-key.local.bat ¶ÁÈ¡£¨¸ÃÎÄ¼şÒÑ±» .gitignore ºöÂÔ£©
 set "AI_API_KEY="
 set "AI_ENDPOINT="
 set "AI_MODEL="
 if exist "%ROOT%ai-key.local.bat" call "%ROOT%ai-key.local.bat"
 if defined DB_PASSWORD set "DB_PASS=%DB_PASSWORD%"
-if not defined DB_PASS set "DB_PASS=change-me"
-rem æœªåœ¨æœ¬åœ°é…ç½®ä¸­æŒ‡å®šæ—¶ï¼Œå›è½åˆ°ç¯å¢ƒå˜é‡æˆ–ä¸‹æ–¹å ä½ç¬¦ï¼ˆè¯·æŒ‰æœ¬æœºå®é™…è·¯å¾„å¡«å†™ï¼‰
-if not defined JAVA_HOME set "JAVA_HOME=CHANGE_ME_JDK17_HOME"
-if not defined MAVEN_HOME set "MAVEN_HOME=CHANGE_ME_MAVEN_HOME"
 
-rem ================= 1/5 å·¥å…·é“¾æ£€æŸ¥ =================
-if not exist "%JAVA_HOME%\bin\java.exe" goto :err_java
-if not exist "%MAVEN_HOME%\bin\mvn.cmd" goto :err_maven
-if not exist "%MYSQL%" goto :err_mysql
+rem ================= 1/5 ¹¤¾ßÁ´¼ì²é£¨×Ô¶¯Ì½²â£¬²»ÒÀÀµĞ´ËÀÂ·¾¶£©=================
+call :resolve_java
+if not defined JAVA_HOME goto :err_java
+call :resolve_maven
+if not defined MAVEN_HOME goto :err_maven
+call :resolve_mysql
+if not defined MYSQL goto :err_mysql
 if not exist "%SERVER_DIR%\pom.xml" goto :err_dir
+
 set "PATH=%JAVA_HOME%\bin;%MAVEN_HOME%\bin;%PATH%"
 set "MAVEN_OPTS=%MAVEN_OPTS% -Dfile.encoding=UTF-8"
-echo [1/5] å·¥å…·é“¾å°±ç»ªï¼šJDK 17 / Maven 3.9.11 / MySQL 5.5
+echo [1/5] Java  %JAVA_VER%
+echo       JAVA_HOME   %JAVA_HOME%
+echo       MAVEN_HOME  %MAVEN_HOME%
+echo       MySQL       %MYSQL%
 
-rem ================= 2/5 AI å¯†é’¥çŠ¶æ€ =================
+rem ================= 2/5 AI ÃÜÔ¿×´Ì¬ =================
 if not defined AI_API_KEY goto :no_key
-echo [2/5] å·²åŠ è½½æœ¬åœ° AI å¯†é’¥ï¼š%AI_ENDPOINT%
-echo       åˆ†ææ¨¡å‹ %AI_MODEL%
+echo [2/5] ÒÑ¼ÓÔØ±¾µØ AI ÃÜÔ¿£º%AI_ENDPOINT%
+echo       ·ÖÎöÄ£ĞÍ %AI_MODEL%
 goto :check_port
 :no_key
-echo [2/5] æœªé…ç½® AI å¯†é’¥ï¼Œå°†è‡ªåŠ¨å›è½è§„åˆ™æ¨¡å¼
+echo [2/5] Î´ÅäÖÃ AI ÃÜÔ¿£¬½«×Ô¶¯»ØÂä¹æÔòÄ£Ê½
 
-rem ================= 3/5 ç«¯å£æ£€æŸ¥ =================
+rem ================= 3/5 ¶Ë¿Ú¼ì²é =================
 :check_port
 call :get_port_pid
 if not defined PID goto :port_free
-echo [3/5] 8080 ç«¯å£å·²è¢«å ç”¨ï¼ŒPID=%PID%ï¼ŒæœåŠ¡å¯èƒ½å·²åœ¨è¿è¡Œ
-choice /C YN /N /T 15 /D Y /M "      åœæ­¢æ—§è¿›ç¨‹å¹¶é‡æ–°å¯åŠ¨å—ï¼ŸY=é‡å¯ N=åªæ‰“å¼€é¡µé¢ : "
+echo [3/5] %APP_PORT% ¶Ë¿ÚÒÑ±»Õ¼ÓÃ£¬PID=%PID%£¬·şÎñ¿ÉÄÜÒÑÔÚÔËĞĞ
+"%SystemRoot%\System32\choice.exe" /C YN /N /T 15 /D Y /M "      Í£Ö¹¾É½ø³Ì²¢ÖØĞÂÆô¶¯Âğ£¿Y=ÖØÆô N=Ö»´ò¿ªÒ³Ãæ : "
 if errorlevel 2 goto :open_only
-echo       æ­£åœ¨åœæ­¢ PID %PID% ...
+echo       ÕıÔÚÍ£Ö¹ PID %PID% ...
 taskkill /F /PID %PID% >nul 2>&1
-timeout /t 2 /nobreak >nul
+"%SystemRoot%\System32\timeout.exe" /t 2 /nobreak >nul
 goto :db_check
 :port_free
-echo [3/5] 8080 ç«¯å£ç©ºé—²
+echo [3/5] %APP_PORT% ¶Ë¿Ú¿ÕÏĞ
 
-rem ================= 4/5 æ•°æ®åº“æ£€æŸ¥ =================
+rem ================= 4/5 Êı¾İ¿â¼ì²é =================
 :db_check
-"%MYSQL%" -u%DB_USER% -p%DB_PASS% -e "select 1" >nul 2>&1
+set "MYSQL_AUTH=-u%DB_USER%"
+if defined DB_PASS set "MYSQL_AUTH=%MYSQL_AUTH% -p%DB_PASS%"
+"%MYSQL%" %MYSQL_AUTH% -e "select 1" >nul 2>&1
 if errorlevel 1 goto :err_db_server
 set "TABLES=0"
-"%MYSQL%" -u%DB_USER% -p%DB_PASS% -N -B -e "select count(*) from information_schema.tables where table_schema='%DB_NAME%'" >"%TEMP%\ai_tables.txt" 2>nul
-set /p TABLES=<"%TEMP%\ai_tables.txt"
+"%MYSQL%" %MYSQL_AUTH% -N -B -e "select count(*) from information_schema.tables where table_schema='%DB_NAME%'" >"%TEMP%\ai_tables.txt" 2>nul
+if exist "%TEMP%\ai_tables.txt" set /p TABLES=<"%TEMP%\ai_tables.txt"
 del "%TEMP%\ai_tables.txt" >nul 2>&1
 if not "%TABLES%"=="0" goto :db_ok
-echo [4/5] æ•°æ®åº“ %DB_NAME% ä¸å­˜åœ¨æˆ–ä¸ºç©ºï¼Œæ­£åœ¨åˆå§‹åŒ–...
-pushd "%DB_DIR%"
-"%MYSQL%" -u%DB_USER% -p%DB_PASS% --default-character-set=utf8mb4 -e "source schema.sql"
+echo [4/5] Êı¾İ¿â %DB_NAME% ²»´æÔÚ»òÎª¿Õ£¬ÕıÔÚ³õÊ¼»¯...
+call :init_db
 if errorlevel 1 goto :err_init
-"%MYSQL%" -u%DB_USER% -p%DB_PASS% --default-character-set=utf8mb4 -e "source data.sql"
-if errorlevel 1 goto :err_init
-popd
-echo       åˆå§‹åŒ–å®Œæˆï¼š10 å¼ è¡¨ + æ¼”ç¤ºæ•°æ®
+echo       ³õÊ¼»¯Íê³É£º11 ÕÅ±í + ÑİÊ¾Êı¾İ
 goto :start_app
 :db_ok
-echo [4/5] æ•°æ®åº“ %DB_NAME% å·²å°±ç»ªï¼Œå…± %TABLES% å¼ è¡¨
+echo [4/5] Êı¾İ¿â %DB_NAME% ÒÑ¾ÍĞ÷£¬¹² %TABLES% ÕÅ±í
 
-rem ================= 5/5 å¯åŠ¨æœåŠ¡ =================
+rem ================= 5/5 Æô¶¯·şÎñ =================
 :start_app
-echo [5/5] æ­£åœ¨å¯åŠ¨æœåŠ¡ï¼Œé¦–æ¬¡æ„å»ºçº¦éœ€ 1 åˆ° 2 åˆ†é’Ÿ...
-echo       è¿è¡Œæ¨¡å¼ï¼šAIï¼ˆprofile=aiï¼‰ï¼Œç«¯å£ 8080
-echo       æ—¥å¿—å‡ºç° Started ResumeApplication åä¼šè‡ªåŠ¨æ‰“å¼€æµè§ˆå™¨
+echo [5/5] ÕıÔÚÆô¶¯·şÎñ£¬Ê×´Î¹¹½¨Ô¼Ğè 1 µ½ 2 ·ÖÖÓ...
+echo       ÔËĞĞÄ£Ê½£ºAI£¨profile=ai£¬Î´ÅäÖÃÃÜÔ¿Ê±×Ô¶¯½µ¼¶¹æÔòÄ£Ê½£©£¬¶Ë¿Ú %APP_PORT%
+echo       ÈÕÖ¾³öÏÖ Started ResumeApplication ºó»á×Ô¶¯´ò¿ªä¯ÀÀÆ÷
 echo.
 start "" /min powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "for($i=0;$i -lt 240;$i++){try{$r=Invoke-WebRequest -Uri '%APP_URL%' -UseBasicParsing -TimeoutSec 2;if($r.StatusCode -eq 200){Start-Process '%APP_URL%';break}}catch{};Start-Sleep -Seconds 1}"
 
 set "SPRING_PROFILES_ACTIVE=ai"
 set "AI_ENABLED=true"
-set "SERVER__PORT=8080"
-set "SERVER_PORT=8080"
-rem ä»¥ç¯å¢ƒå˜é‡å½¢å¼ä¼ ç»™ Spring Bootï¼Œé¿å…æ˜æ–‡å£ä»¤å‡ºç°åœ¨ä»»ä½•é…ç½®æ–‡ä»¶é‡Œ
+set "SERVER_PORT=%APP_PORT%"
+rem ÒÔ»·¾³±äÁ¿ĞÎÊ½´«¸ø Spring Boot£¬±ÜÃâÃ÷ÎÄ¿ÚÁî³öÏÖÔÚÈÎºÎÅäÖÃÎÄ¼şÀï
 set "DB_USERNAME=%DB_USER%"
 set "DB_PASSWORD=%DB_PASS%"
 
 pushd "%SERVER_DIR%"
-call "%MAVEN_HOME%\bin\mvn.cmd" spring-boot:run
+call "%MAVEN_HOME%\bin\mvn.cmd" spring-boot:run "-Dspring-boot.run.arguments=--server.port=%APP_PORT% --spring.profiles.active=ai --logging.charset.console=GBK"
+set "MVN_RC=%ERRORLEVEL%"
 popd
 
 echo.
-echo æœåŠ¡å·²é€€å‡ºã€‚å…³é—­æœ¬çª—å£å³å¯ï¼›å¦‚éœ€å†æ¬¡å¯åŠ¨ï¼Œè¯·é‡æ–°åŒå‡»æœ¬è„šæœ¬ã€‚
+if not "%MVN_RC%"=="0" echo [ÌáÊ¾] ¹¹½¨»òÆô¶¯Ê§°Ü£¨ÍË³öÂë %MVN_RC%£©£¬Çë²é¿´ÉÏ·½ Maven Êä³ö¡£
+echo ·şÎñÒÑÍË³ö¡£¹Ø±Õ±¾´°¿Ú¼´¿É£»ÈçĞèÔÙ´ÎÆô¶¯£¬ÇëÖØĞÂË«»÷±¾½Å±¾¡£
 pause
-exit /b 0
+exit /b %MVN_RC%
 
-rem ================= åªæ‰“å¼€é¡µé¢ =================
+rem ================= Ö»´ò¿ªÒ³Ãæ =================
 :open_only
-echo       ç›´æ¥æ‰“å¼€é¡µé¢ï¼š%APP_URL%
+echo       Ö±½Ó´ò¿ªÒ³Ãæ£º%APP_URL%
 start "" "%APP_URL%"
-timeout /t 2 /nobreak >nul
+"%SystemRoot%\System32\timeout.exe" /t 2 /nobreak >nul
 exit /b 0
 
-rem ================= å­è¿‡ç¨‹ï¼šå– 8080 ç›‘å¬è¿›ç¨‹ =================
+rem ================= ×Ó¹ı³Ì£º³õÊ¼»¯Êı¾İ¿â =================
+:init_db
+pushd "%DB_DIR%"
+"%MYSQL%" %MYSQL_AUTH% --default-character-set=utf8mb4 < schema.sql
+if errorlevel 1 goto :init_fail
+"%MYSQL%" %MYSQL_AUTH% --default-character-set=utf8mb4 < data.sql
+if errorlevel 1 goto :init_fail
+popd
+exit /b 0
+:init_fail
+popd
+exit /b 1
+
+rem ================= ×Ó¹ı³Ì£ºÈ¡¶Ë¿Ú¼àÌı½ø³Ì =================
 :get_port_pid
 set "PID="
-for /f "tokens=5" %%p in ('netstat -ano ^| findstr /C:":8080" ^| findstr /C:"LISTENING"') do set "PID=%%p"
+for /f "tokens=5" %%p in ('netstat -ano ^| findstr /C:"LISTENING" ^| findstr /C:":%APP_PORT% "') do set "PID=%%p"
 goto :eof
 
-rem ================= é”™è¯¯å¤„ç† =================
+rem ================= ×Ó¹ı³Ì£ºÌ½²â JDK£¨ÒªÇó 17 ¼°ÒÔÉÏ£©=================
+:resolve_java
+if not defined JAVA_HOME goto :rj_scan
+if not exist "%JAVA_HOME%\bin\java.exe" goto :rj_clear
+call :java_ok "%JAVA_HOME%"
+if not errorlevel 1 goto :eof
+:rj_clear
+set "JAVA_HOME="
+:rj_scan
+for /d %%d in ("%ProgramFiles%\Java\*" "%ProgramFiles%\Eclipse Adoptium\*" "D:\Program Files\Java\*" "%USERPROFILE%\.jdks\*") do call :try_java "%%~fd"
+if defined JAVA_HOME goto :eof
+for /f "delims=" %%p in ('where java.exe 2^>nul') do call :try_java_path "%%~fp"
+goto :eof
+
+:try_java
+if defined JAVA_HOME goto :eof
+if not exist "%~1\bin\java.exe" goto :eof
+call :java_ok "%~1"
+if errorlevel 1 goto :eof
+set "JAVA_HOME=%~1"
+goto :eof
+
+:try_java_path
+if defined JAVA_HOME goto :eof
+set "CAND=%~dp1"
+set "CAND=%CAND:~0,-1%"
+for %%d in ("%CAND%\..") do call :try_java "%%~fd"
+goto :eof
+
+:java_ok
+set "JV="
+"%~1\bin\java.exe" -version >"%TEMP%\ai_java_ver.txt" 2>&1
+for /f "tokens=3" %%v in ('findstr /i "version" "%TEMP%\ai_java_ver.txt"') do if not defined JV set "JV=%%~v"
+del "%TEMP%\ai_java_ver.txt" >nul 2>&1
+if not defined JV exit /b 1
+set "JV1="
+set "JV2="
+for /f "tokens=1 delims=." %%a in ("%JV%") do set "JV1=%%a"
+for /f "tokens=2 delims=." %%b in ("%JV%") do set "JV2=%%b"
+if "%JV1%"=="1" set "JVMAJ=%JV2%"
+if "%JV1%"=="1" goto :java_cmp
+set "JVMAJ=%JV1%"
+:java_cmp
+if not defined JVMAJ exit /b 1
+if %JVMAJ% GEQ 17 set "JAVA_VER=%JV%"
+if %JVMAJ% GEQ 17 exit /b 0
+exit /b 1
+
+rem ================= ×Ó¹ı³Ì£ºÌ½²â Maven =================
+:resolve_maven
+if not defined MAVEN_HOME goto :rm_scan
+if not exist "%MAVEN_HOME%\bin\mvn.cmd" set "MAVEN_HOME="
+if defined MAVEN_HOME goto :eof
+:rm_scan
+for /f "delims=" %%m in ('where mvn.cmd 2^>nul') do call :try_maven "%%~fpm"
+if defined MAVEN_HOME goto :eof
+for /d %%d in ("%ProgramFiles%\apache-maven-*" "%ProgramFiles%\maven-*" "D:\Program Files\maven-*" "D:\Program Files\apache-maven-*" "C:\apache-maven-*" "%USERPROFILE%\apache-maven-*") do call :try_maven_dir "%%~fd"
+goto :eof
+
+:try_maven
+if defined MAVEN_HOME goto :eof
+for %%d in ("%~dp1..") do call :try_maven_dir "%%~fd"
+goto :eof
+
+:try_maven_dir
+if defined MAVEN_HOME goto :eof
+if exist "%~1\bin\mvn.cmd" set "MAVEN_HOME=%~1"
+goto :eof
+
+rem ================= ×Ó¹ı³Ì£ºÌ½²â MySQL ¿Í»§¶Ë =================
+:resolve_mysql
+if defined MYSQL if exist "%MYSQL%" goto :eof
+for %%p in ("%ProgramFiles%\MySQL\MySQL Server 5.5\bin\mysql.exe") do if exist "%%~fp" set "MYSQL=%%~fp"
+if defined MYSQL goto :eof
+for /f "delims=" %%m in ('where mysql.exe 2^>nul') do if not defined MYSQL set "MYSQL=%%~fm"
+if defined MYSQL goto :eof
+for /d %%d in ("%ProgramFiles%\MySQL\MySQL Server*" "D:\Program Files\MySQL\MySQL Server*") do if not defined MYSQL if exist "%%~fd\bin\mysql.exe" set "MYSQL=%%~fd\bin\mysql.exe"
+goto :eof
+
+rem ================= ´íÎó´¦Àí =================
 :err_java
-echo [é”™è¯¯] æœªæ‰¾åˆ° JDK 17ï¼š%JAVA_HOME%\bin\java.exe
+echo [´íÎó] Î´ÕÒµ½ JDK 17 ¼°ÒÔÉÏ°æ±¾¡£
+echo        Çë°²×° JDK 17+£¬»òÔÚ ai-key.local.bat ÖĞÉèÖÃ JAVA_HOME Ö¸Ïò°²×°Ä¿Â¼¡£
 goto :die
 :err_maven
-echo [é”™è¯¯] æœªæ‰¾åˆ° Mavenï¼š%MAVEN_HOME%\bin\mvn.cmd
+echo [´íÎó] Î´ÕÒµ½ Maven£¨mvn.cmd£©¡£
+echo        ÇëÈ·ÈÏ Maven ÒÑ°²×°²¢¼ÓÈë PATH£¬»òÔÚ ai-key.local.bat ÖĞÉèÖÃ MAVEN_HOME¡£
 goto :die
 :err_mysql
-echo [é”™è¯¯] æœªæ‰¾åˆ° MySQL å®¢æˆ·ç«¯ï¼š%MYSQL%
+echo [´íÎó] Î´ÕÒµ½ MySQL ÃüÁîĞĞ¿Í»§¶Ë mysql.exe¡£
+echo        ÇëÈ·ÈÏÒÑ°²×° MySQL 5.5 ¿Í»§¶Ë£¬»òÔÚ PATH ÖĞ¼ÓÈëÆä bin Ä¿Â¼¡£
 goto :die
 :err_dir
-echo [é”™è¯¯] æœªæ‰¾åˆ°é¡¹ç›®ç›®å½•ï¼š%SERVER_DIR%\pom.xml
+echo [´íÎó] Î´ÕÒµ½ÏîÄ¿Ä¿Â¼£º%SERVER_DIR%\pom.xml
 goto :die
 :err_db_server
-echo [é”™è¯¯] æ— æ³•è¿æ¥ MySQL 3306ï¼Œè¯·å…ˆå¯åŠ¨ MySQL æœåŠ¡
+echo [´íÎó] ÎŞ·¨Á¬½Ó MySQL 3306£¨ÕËºÅ %DB_USER%£©¡£
+echo        ÇëÏÈÆô¶¯ MySQL ·şÎñ£¬²¢È·ÈÏ ai-key.local.bat ÖĞµÄ DB_USERNAME / DB_PASSWORD ÕıÈ·¡£
 goto :die
 :err_init
-echo [é”™è¯¯] æ•°æ®åº“åˆå§‹åŒ–å¤±è´¥ï¼Œè¯·æŸ¥çœ‹ä¸Šæ–¹ MySQL è¾“å‡º
-popd
+echo [´íÎó] Êı¾İ¿â³õÊ¼»¯Ê§°Ü£¬Çë²é¿´ÉÏ·½ MySQL Êä³ö¡£
+echo        ³£¼ûÔ­Òò£º¿ÚÁî´íÎó¡¢MySQL Î´Æô¶¯¡¢¿âÃû³åÍ»¡£
 goto :die
 
 :die

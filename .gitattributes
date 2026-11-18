@@ -1,0 +1,11 @@
+# 统一换行，避免 clone 后脚本失效
+# 批处理必须是 CRLF：LF-only 的 .bat 在 cmd 下 goto/标签会失效
+*.bat text eol=crlf
+
+# 其余文本文件沿用各平台默认
+*.java text
+*.md text
+*.sql text
+*.yml text
+*.html text
+*.js text

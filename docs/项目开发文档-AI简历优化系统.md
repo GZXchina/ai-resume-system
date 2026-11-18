@@ -7,6 +7,7 @@
 > **当前状态：需求范围内功能全部完成（含 v2.0 扩展项）；e2e 136/136（规则模式）、单元 56/56、集成 17/17；AI 厂商可在管理端切换；学生可把任意 HTTP 接口配成可复用自定义 API，服务端代发并统一处理超时/重试/截断/脱敏，请求头值 AES-256-GCM 加密存储。**
 > **v2.2（2026-11-17）**：按全项目审查结论修复 OCR / 导入链路 8 个缺陷（P51~P58），新增 `ResumeImportServiceTest`、`ResumeOcrServiceTest` 共 16 项单元测试（本机 JDK 17 直编运行 16/16 通过）。上述 e2e / 集成数字为 v2.1 结果，v2.2 新增的 2 项 e2e 用例需在具备 MySQL 与 AI 密钥的环境重跑确认。
 > **v2.3（2026-11-17）**：新增 FR-RESUME-06（简历删除 / 批量删除、Markdown 与纯文本导出）与 FR-USER-03（修改密码，改后吊销其余会话）；新增 `ResumeServiceTest` 9 项、`AuthControllerPasswordTest` 5 项单元测试（与 v2.2 合计 **30 项，本机直跑 30/30 通过**）；e2e 新增 13 项用例（待具备 MySQL 的环境执行确认）。
+> **v2.4（2026-11-18）**：环境重置后的一键启动修复，属部署链路问题，不改业务逻辑。（1）`启动系统.bat` 改为**自动探测** JDK 17+ / Maven / MySQL 客户端，不再依赖 `ai-key.local.bat` 中写死的工具链路径（该路径随环境重置失效曾导致脚本在第一步退出）；（2）批处理改为 **GBK 编码 + `chcp 936`**——UTF-8 批处理在 cmd 下会因子节/字符偏移错位把 `echo` 行当命令执行（实测报 `'学生端：http:' is not recognized`）；（3）`timeout`/`choice` 改为调用 `%SystemRoot%\System32\` 原生程序，避免 PATH 中存在 Git 版 coreutils 时被劫持；（4）应用 JVM 追加 `--logging.charset.console=GBK`，解决控制台中文日志乱码（不修改应用默认字符集）；（5）`GlobalExceptionHandler` 新增 `HttpRequestMethodNotSupportedException` → **405**、`NoResourceFoundException` → **404**，不再兜底成 500/200。回归实测 e2e **155/155 通过**。
 
 ## 0. 本阶段（v2.0 / v2.1）目标与功能范围
 

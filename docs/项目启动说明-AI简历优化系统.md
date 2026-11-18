@@ -101,6 +101,23 @@ AI_API_KEY='你的密钥' mvn spring-boot:run \
 
 ## 4. 日常启动（已初始化过）
 
+### 4.1 一键启动（推荐，双击即用）
+
+双击根目录 `启动系统.bat`，脚本按 5 步执行，每步都有明确输出：
+
+| 步骤 | 内容 | 失败时的表现 |
+| --- | --- | --- |
+| 0/5 | 读取 `ai-key.local.bat`（密钥、库口令、可选工具链路径） | 文件不存在则跳过，走规则模式 |
+| 1/5 | 工具链检查：**自动探测** JDK 17+、Maven、MySQL 客户端 | 打印「未找到 JDK 17 及以上版本」等具体提示并退出 |
+| 2/5 | AI 密钥状态 | 无密钥时提示将回落规则模式，不影响启动 |
+| 3/5 | 8080 端口检查 | 已占用时询问「重启 / 只打开页面」，15 秒无操作默认重启 |
+| 4/5 | 数据库检查 | 库不存在时自动执行 `schema.sql` + `data.sql` 初始化 |
+| 5/5 | 启动服务并自动打开浏览器 | 启动失败会打印 Maven 输出与退出码 |
+
+工具链探测顺序：`ai-key.local.bat` 中的 `JAVA_HOME`/`MAVEN_HOME`（需真实存在且 JDK ≥ 17）→ 常见安装目录 → PATH。因此**换电脑或环境重置后无需改脚本**；若自动探测不到，再在 `ai-key.local.bat` 中显式指定路径。
+
+### 4.2 手动启动
+
 ```bash
 cd "<PROJECT_ROOT>/ai-resume-system/server"
 AI_API_KEY='你的密钥' mvn spring-boot:run \
@@ -551,6 +568,18 @@ API-KEY 加密主密钥默认保存在本机 `~/.ai-resume/ai-secret.key`，换�
 
 **Q16：自定义 API 页面显示"已切换到本机缓存"**
 后端不可用或登录状态异常时，列表自动回落到本机镜像，只读可用、写入会进入待同步队列。先确认服务已启动（`http://localhost:8080/` 可访问）并重新登录，再刷新页面即可恢复云端数据。
+
+**Q17：双击 `启动系统.bat` 直接退出，提示"未找到 JDK 17：C:\Users\...\DevEnv\jdk-17.0.12\bin\java.exe"**
+`ai-key.local.bat` 里写死的 `JAVA_HOME`/`MAVEN_HOME` 已失效（换了电脑、重装系统或清理过 `Documents\DevEnv` 都会这样）。v2.4 起脚本会**自动探测**工具链：先把 `ai-key.local.bat` 里那两行改成真实路径，或直接删掉/注释掉，让脚本自己按「常见安装目录 → PATH」去找 JDK 17+、Maven、`mysql.exe`。判断标准只有一个：`%JAVA_HOME%\bin\java.exe` 存在且版本 ≥ 17。
+
+**Q18：启动脚本报 `'学生端：http:' is not recognized as an internal or external command`**
+批处理文件被存成了 UTF-8。`cmd.exe` 按字节推进读取位置、按当前代码页解码，UTF-8 中文会让解析错位，连 `echo` 都被吃掉。本仓库脚本统一为 **GBK（ANSI/936）+ `chcp 936`**，**不要用 VS Code 的"UTF-8"保存或另存为**；改动后如需转换：`iconv -f UTF-8 -t GBK 启动系统.bat > tmp && mv tmp 启动系统.bat`。
+
+**Q19：控制台里 Spring Boot 的中文日志是乱码（如"AI 閰嶇疆宸插姞杞斤細"）**
+控制台是 GBK（936），而 Logback 默认以 UTF-8 写控制台。`启动系统.bat` 已给应用传 `--logging.charset.console=GBK`；手动启动时可自行追加该参数。注意这**只影响控制台输出编码**，不影响接口、数据库与文件读写（均为 UTF-8）。
+
+**Q20：请求了不存在的路径/接口，返回 404 还是 200？**
+v2.4 起语义已规范：路径不存在 → **404**（`{"code":1,"message":"请求的资源不存在：xxx"}`）；HTTP 方法不支持（例如对不提供删除的分析记录发 `DELETE`）→ **405**；未登录 → **401**；业务校验失败仍为 200 + `code:1`。
 
 ---
 
